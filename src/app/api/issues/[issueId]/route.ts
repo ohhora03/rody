@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import type { IssueStatus, Priority } from "@/types";
 
@@ -12,12 +11,26 @@ const INCLUDE = {
   comments: { include: { author: true }, orderBy: { createdAt: "asc" as const } },
 };
 
+export async function GET(
+  req: NextRequest,
+  ctx: RouteContext<"/api/issues/[issueId]">
+) {
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+
+  const { issueId } = await ctx.params;
+  const issue = await prisma.issue.findUnique({ where: { id: issueId }, include: INCLUDE });
+  if (!issue) return Response.json({ error: "과제를 찾을 수 없습니다" }, { status: 404 });
+
+  return Response.json({ data: issue });
+}
+
 export async function PATCH(
   req: NextRequest,
   ctx: RouteContext<"/api/issues/[issueId]">
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { issueId } = await ctx.params;
   const body = await req.json();
@@ -33,7 +46,7 @@ export async function PATCH(
           fromStatus: current.status,
           toStatus: body.status,
           issueId,
-          authorId: session.user.id,
+          authorId: user.id,
         },
       });
     }
@@ -60,11 +73,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<"/api/issues/[issueId]">
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { issueId } = await ctx.params;
   await prisma.issue.delete({ where: { id: issueId } });

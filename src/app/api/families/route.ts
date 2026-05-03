@@ -1,31 +1,43 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { MEMBER_COLORS } from "@/lib/utils";
 
+export async function GET(req: NextRequest) {
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+
+  const memberships = await prisma.familyMember.findMany({
+    where: { userId: user.id },
+    include: { family: { include: { members: { include: { user: true } } } } },
+  });
+
+  const families = memberships.map((m) => m.family);
+  return Response.json({ data: families });
+}
+
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { name, nickname } = await req.json();
   if (!name?.trim() || !nickname?.trim())
     return Response.json({ error: "가족 이름과 호칭을 입력해주세요" }, { status: 400 });
 
   const existingMember = await prisma.familyMember.findFirst({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
   });
   if (existingMember) return Response.json({ error: "이미 가족에 속해 있습니다" }, { status: 400 });
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  const colorIdx = MEMBER_COLORS.indexOf(user?.color ?? MEMBER_COLORS[0]);
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+  const colorIdx = MEMBER_COLORS.indexOf(dbUser?.color ?? MEMBER_COLORS[0]);
 
   const family = await prisma.family.create({
     data: {
       name: name.trim(),
       members: {
         create: {
-          userId: session.user.id,
+          userId: user.id,
           role: "MASTER",
           nickname: nickname.trim(),
         },
