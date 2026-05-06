@@ -34,11 +34,11 @@ export default function Sidebar({ projectId, familyId, activeSprint, user }: Pro
       {/* 로고 */}
       <div className="px-5 py-5 border-b border-indigo-50">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+            <img src="/icon-192.png" alt="ARC" className="w-full h-full object-cover" />
           </div>
           <div>
-            <p className="font-bold text-sm text-indigo-900">FamilySync</p>
+            <p className="font-bold text-sm text-indigo-900">ARC</p>
             {activeSprint && (
               <p className="text-[11px] text-indigo-400 truncate max-w-[130px]">{activeSprint.name}</p>
             )}

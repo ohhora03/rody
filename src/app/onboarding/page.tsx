@@ -57,10 +57,10 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center mb-8">
-          <div className="inline-flex w-16 h-16 bg-indigo-100 rounded-2xl items-center justify-center mb-4">
-            <Home className="w-8 h-8 text-indigo-600" />
+          <div className="inline-flex w-16 h-16 rounded-2xl overflow-hidden mb-4 shadow-md">
+            <img src="/icon-512.png" alt="ARC" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">FamilySync에 오신걸 환영해요</h1>
+          <h1 className="text-2xl font-bold text-gray-900">ARC에 오신걸 환영해요</h1>
           <p className="text-gray-500 mt-1 text-sm">가족과 함께 목표를 달성해보세요</p>
         </div>
 
