@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import type { Priority } from "@/types";
 
@@ -13,8 +12,8 @@ const INCLUDE = {
 };
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { searchParams } = req.nextUrl;
   const projectId = searchParams.get("projectId");
@@ -28,7 +27,7 @@ export async function GET(req: NextRequest) {
   if (!project) return Response.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
 
   const member = await prisma.familyMember.findUnique({
-    where: { userId_familyId: { userId: session.user.id, familyId: project.familyId } },
+    where: { userId_familyId: { userId: user.id, familyId: project.familyId } },
   });
   if (!member) return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
 
@@ -47,8 +46,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const body = await req.json();
   const { title, projectId, sprintId, assigneeId, reviewerId, priority, points, description } = body;
@@ -59,7 +58,7 @@ export async function POST(req: NextRequest) {
   if (!project) return Response.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
 
   const member = await prisma.familyMember.findUnique({
-    where: { userId_familyId: { userId: session.user.id, familyId: project.familyId } },
+    where: { userId_familyId: { userId: user.id, familyId: project.familyId } },
   });
   if (!member) return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
 
@@ -81,7 +80,7 @@ export async function POST(req: NextRequest) {
       order: (last?.order ?? -1) + 1,
       assigneeId: assigneeId || null,
       reviewerId: reviewerId || null,
-      creatorId: session.user.id,
+      creatorId: user.id,
     },
     include: INCLUDE,
   });

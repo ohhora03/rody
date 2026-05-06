@@ -1,12 +1,11 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import type { IssueStatus } from "@/types";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { issueId, status, order } = await req.json();
 
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest) {
         fromStatus: current.status,
         toStatus: status,
         issueId,
-        authorId: session.user.id,
+        authorId: user.id,
       },
     });
   }

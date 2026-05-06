@@ -1,11 +1,10 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { inviteCode, nickname } = await req.json();
   if (!inviteCode?.trim() || !nickname?.trim())
@@ -18,12 +17,12 @@ export async function POST(req: NextRequest) {
   if (memberCount >= 6) return Response.json({ error: "가족 구성원은 최대 6명입니다" }, { status: 400 });
 
   const existing = await prisma.familyMember.findUnique({
-    where: { userId_familyId: { userId: session.user.id, familyId: family.id } },
+    where: { userId_familyId: { userId: user.id, familyId: family.id } },
   });
   if (existing) return Response.json({ error: "이미 이 가족에 속해 있습니다" }, { status: 400 });
 
   const member = await prisma.familyMember.create({
-    data: { userId: session.user.id, familyId: family.id, nickname: nickname.trim() },
+    data: { userId: user.id, familyId: family.id, nickname: nickname.trim() },
     include: { family: true },
   });
 

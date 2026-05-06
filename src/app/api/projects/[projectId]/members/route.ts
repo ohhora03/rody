@@ -1,14 +1,13 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<"/api/projects/[projectId]/members">
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { projectId } = await ctx.params;
 
@@ -27,7 +26,7 @@ export async function GET(
   });
   if (!project) return Response.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
 
-  const isMember = project.family.members.some((m) => m.userId === session.user.id);
+  const isMember = project.family.members.some((m) => m.userId === user.id);
   if (!isMember) return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
 
   const members = project.family.members.map((m) => ({

@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 
 async function getMemberAndProject(userId: string, projectId: string) {
@@ -14,14 +13,14 @@ async function getMemberAndProject(userId: string, projectId: string) {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<"/api/projects/[projectId]/sprints">
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { projectId } = await ctx.params;
-  const result = await getMemberAndProject(session.user.id, projectId);
+  const result = await getMemberAndProject(user.id, projectId);
   if ("error" in result) return Response.json({ error: result.error }, { status: result.status });
 
   const sprints = await prisma.sprint.findMany({
@@ -35,11 +34,11 @@ export async function POST(
   req: NextRequest,
   ctx: RouteContext<"/api/projects/[projectId]/sprints">
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const { projectId } = await ctx.params;
-  const result = await getMemberAndProject(session.user.id, projectId);
+  const result = await getMemberAndProject(user.id, projectId);
   if ("error" in result) return Response.json({ error: result.error }, { status: result.status });
   if (result.member.role !== "MASTER") return Response.json({ error: "마스터만 스프린트를 생성할 수 있습니다" }, { status: 403 });
 

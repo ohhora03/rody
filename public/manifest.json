@@ -1,0 +1,22 @@
+{
+  "name": "ARC",
+  "short_name": "ARC",
+  "description": "가족과 함께하는 스프린트 목표 관리",
+  "start_url": "/m/dashboard",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "192x192",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "512x512",
+      "type": "image/x-icon"
+    }
+  ]
+}
