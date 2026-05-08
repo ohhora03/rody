@@ -8,6 +8,7 @@ import { mApi } from "../_lib/api";
 import Avatar from "../_components/Avatar";
 import StatusBadge from "../_components/StatusBadge";
 import PriorityDot from "../_components/PriorityDot";
+import CreateIssueFAB from "../_components/CreateIssueFAB";
 
 type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD";
 type Priority = "HIGH" | "MEDIUM" | "LOW";
@@ -280,6 +281,10 @@ export default function BacklogPage() {
       )}
 
       <div style={{ height: 16 }} />
+
+      {projectId && (
+        <CreateIssueFAB projectId={projectId} sprintId={null} />
+      )}
     </div>
   );
 }

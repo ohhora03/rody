@@ -5,7 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 function isMobile(ua: string) {
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  // Android Mobile(폰), iPhone, iPod만 감지 — 태블릿·PC 제외
+  return /Android.*Mobile|iPhone|iPod/i.test(ua);
 }
 
 export default async function RootPage() {

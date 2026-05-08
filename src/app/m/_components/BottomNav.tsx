@@ -19,10 +19,9 @@ export default function BottomNav() {
       style={{
         position: "fixed",
         bottom: 0,
-        left: "50%",
-        transform: "translateX(-50%)",
+        left: 0,
+        right: 0,
         width: "100%",
-        maxWidth: 430,
         backgroundColor: "#ffffff",
         borderTop: "1px solid #f1f5f9",
         display: "flex",

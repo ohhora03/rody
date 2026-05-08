@@ -11,8 +11,7 @@ export default async function MobileLayout({ children }: { children: React.React
     <div
       style={{
         minHeight: "100dvh",
-        maxWidth: 430,
-        margin: "0 auto",
+        width: "100%",
         background: "#f8fafc",
         position: "relative",
         display: "flex",

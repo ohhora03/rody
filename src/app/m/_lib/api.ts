@@ -59,4 +59,18 @@ export const mApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }).then((r) => r.json()),
+
+  createIssue: (body: {
+    title: string;
+    projectId: string;
+    sprintId?: string | null;
+    assigneeId?: string | null;
+    priority?: string;
+    points?: number;
+  }) =>
+    fetch("/api/issues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => r.json()),
 };
