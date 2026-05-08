@@ -29,7 +29,7 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
   const [desc, setDesc] = useState(task?.description ?? "");
   const [status, setStatus] = useState<IssueStatus>(task?.status ?? "READY");
   const [priority, setPriority] = useState<Priority>(task?.priority ?? "MEDIUM");
-  const [points, setPoints] = useState<number>(task?.points ?? 1);
+  const [pointsStr, setPointsStr] = useState<string>(String(task?.points ?? 1));
   const [pointUnit, setPointUnit] = useState<PointUnit>((task as any)?.pointUnit ?? "HOUR");
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId ?? "");
   const [reviewerId, setReviewerId] = useState(task?.reviewerId ?? "");
@@ -53,7 +53,7 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
         const res = await fetch(`/api/issues/${task!.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc, status, priority, points, pointUnit, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
+          body: JSON.stringify({ title, description: desc, status, priority, points: parseFloat(pointsStr) || 1, pointUnit, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
         });
         if (!res.ok) throw new Error();
         toast.success("과제가 저장되었습니다");
@@ -61,7 +61,7 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
         const res = await fetch("/api/issues", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc, projectId, sprintId: sprintId || null, priority, points, pointUnit, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
+          body: JSON.stringify({ title, description: desc, projectId, sprintId: sprintId || null, priority, points: parseFloat(pointsStr) || 1, pointUnit, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
         });
         if (!res.ok) throw new Error();
         toast.success("과제가 등록되었습니다");
@@ -270,10 +270,11 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
                     type="number"
                     min={0.5}
                     step={0.5}
-                    value={points}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      if (!isNaN(v) && v > 0) setPoints(v);
+                    value={pointsStr}
+                    onChange={(e) => setPointsStr(e.target.value)}
+                    onBlur={() => {
+                      const v = parseFloat(pointsStr);
+                      if (isNaN(v) || v <= 0) setPointsStr("1");
                     }}
                     className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-center focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700"
                   />

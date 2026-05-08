@@ -91,7 +91,7 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
   const [desc, setDesc] = useState("");
   const [status, setStatus] = useState<IssueStatus>("READY");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
-  const [points, setPoints] = useState<number>(1);
+  const [pointsStr, setPointsStr] = useState<string>("1");
   const [pointUnit, setPointUnit] = useState<PointUnit>("HOUR");
   const [assigneeId, setAssigneeId] = useState("");
   const [reviewerId, setReviewerId] = useState("");
@@ -109,7 +109,7 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
       setDesc(detail.description ?? "");
       setStatus(detail.status);
       setPriority(detail.priority);
-      setPoints(detail.points ?? 1);
+      setPointsStr(String(detail.points ?? 1));
       setPointUnit(((detail as any).pointUnit as PointUnit) ?? "HOUR");
       setAssigneeId(detail.assigneeId ?? "");
       setReviewerId(detail.reviewerId ?? "");
@@ -127,14 +127,14 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
     try {
       if (isEdit) {
         await mApi.patchIssue(issueId!, {
-          title, description: desc, status, priority, points, pointUnit,
+          title, description: desc, status, priority, points: parseFloat(pointsStr) || 1, pointUnit,
           assigneeId: assigneeId || null, reviewerId: reviewerId || null,
           dueDate: dueDate || null,
         });
       } else {
         await mApi.createIssue({
           title, description: desc, projectId,
-          sprintId: sprintId || null, priority, points, pointUnit,
+          sprintId: sprintId || null, priority, points: parseFloat(pointsStr) || 1, pointUnit,
           assigneeId: assigneeId || null, reviewerId: reviewerId || null,
           dueDate: dueDate || null,
         });
@@ -331,10 +331,11 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
                     type="number"
                     min={0.5}
                     step={0.5}
-                    value={points}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      if (!isNaN(v) && v > 0) setPoints(v);
+                    value={pointsStr}
+                    onChange={(e) => setPointsStr(e.target.value)}
+                    onBlur={() => {
+                      const v = parseFloat(pointsStr);
+                      if (isNaN(v) || v <= 0) setPointsStr("1");
                     }}
                     style={{
                       width: 90, padding: "10px 12px", border: "1.5px solid #e5e7eb",
