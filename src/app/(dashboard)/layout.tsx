@@ -36,7 +36,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         activeSprint={activeSprint ? { id: activeSprint.id, name: activeSprint.name } : null}
         user={{ name: session.user.name, email: session.user.email, color: dbUser?.color }}
       />
-      <div className="flex-1 min-w-0 overflow-hidden">{children}</div>
+      <div className="flex-1 min-w-0 overflow-hidden md:pt-0 pt-16">{children}</div>
     </div>
   );
 }

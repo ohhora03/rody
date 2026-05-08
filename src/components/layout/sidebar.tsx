@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutDashboard, Zap, List, Settings, LogOut, Play } from "lucide-react";
+import { LayoutDashboard, Zap, List, Settings, LogOut, Play, Menu, X, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 
 export default function Sidebar({ projectId, familyId, activeSprint, user }: Props) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   const nav = [
     { href: `/projects/${projectId}/dashboard`, label: "대시보드", Icon: LayoutDashboard },
@@ -30,10 +32,10 @@ export default function Sidebar({ projectId, familyId, activeSprint, user }: Pro
     { href: `/family/${familyId}/setup`, label: "설정", Icon: Settings },
   ];
 
-  return (
-    <aside className="w-60 min-h-screen bg-white border-r border-indigo-50 flex flex-col flex-shrink-0">
+  const SidebarContent = () => (
+    <>
       {/* 로고 */}
-      <div className="px-5 py-5 border-b border-indigo-50">
+      <div className="px-5 py-5 border-b border-indigo-50 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
             <Image src="/icon-192.png" alt="ARC" width={32} height={32} className="w-full h-full object-cover" />
@@ -45,7 +47,21 @@ export default function Sidebar({ projectId, familyId, activeSprint, user }: Pro
             )}
           </div>
         </div>
+        {/* 모바일에서 닫기 버튼 */}
+        <button className="md:hidden p-1 text-gray-400" onClick={() => setOpen(false)}>
+          <X className="w-5 h-5" />
+        </button>
       </div>
+
+      {/* 모바일 앱으로 이동 배너 */}
+      <Link
+        href="/m/dashboard"
+        className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-600 text-xs font-semibold hover:bg-indigo-100 transition-colors"
+        onClick={() => setOpen(false)}
+      >
+        <Smartphone className="w-3.5 h-3.5" />
+        모바일 앱으로 보기
+      </Link>
 
       {/* 네비게이션 */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
@@ -55,6 +71,7 @@ export default function Sidebar({ projectId, familyId, activeSprint, user }: Pro
             <Link
               key={href}
               href={href}
+              onClick={() => setOpen(false)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                 active ? "bg-indigo-50 text-indigo-700" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
@@ -90,6 +107,40 @@ export default function Sidebar({ projectId, familyId, activeSprint, user }: Pro
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* 모바일 햄버거 버튼 */}
+      <button
+        className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 bg-white rounded-xl shadow-md border border-indigo-50 flex items-center justify-center"
+        onClick={() => setOpen(true)}
+      >
+        <Menu className="w-5 h-5 text-indigo-600" />
+      </button>
+
+      {/* 모바일 오버레이 */}
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-40"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* 사이드바 - 모바일: 슬라이드 드로어, 데스크탑: 고정 */}
+      <aside
+        className={cn(
+          "bg-white border-r border-indigo-50 flex flex-col flex-shrink-0 z-50 transition-transform duration-200",
+          // 데스크탑: 항상 보임
+          "md:relative md:translate-x-0 md:w-60 md:min-h-screen",
+          // 모바일: 고정 드로어
+          "fixed top-0 left-0 h-full w-72",
+          open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        <SidebarContent />
+      </aside>
+    </>
   );
 }
