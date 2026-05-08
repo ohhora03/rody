@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Users, Mail, Loader2 } from "lucide-react";
@@ -39,8 +40,8 @@ export default function LoginPage() {
     <div className="w-full max-w-sm">
       <div className="bg-white rounded-3xl shadow-xl shadow-indigo-100/50 p-8 border border-indigo-50">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl overflow-hidden mb-4 shadow-lg shadow-indigo-200">
-            <img src="/icon-512.png" alt="ARC" className="w-full h-full object-cover" />
+          <div className="w-16 h-16 rounded-2xl overflow-hidden mb-4 shadow-lg shadow-indigo-200 flex-shrink-0">
+            <Image src="/icon-512.png" alt="ARC" width={64} height={64} className="w-full h-full object-cover" priority />
           </div>
           <h1 className="text-2xl font-bold text-indigo-900">ARC</h1>
           <p className="text-sm text-indigo-400 mt-1">가족과 함께하는 스프린트 관리</p>

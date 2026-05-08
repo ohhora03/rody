@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { LayoutDashboard, Zap, List, Settings, LogOut, Play } from "lucide-react";
@@ -35,7 +36,7 @@ export default function Sidebar({ projectId, familyId, activeSprint, user }: Pro
       <div className="px-5 py-5 border-b border-indigo-50">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
-            <img src="/icon-192.png" alt="ARC" className="w-full h-full object-cover" />
+            <Image src="/icon-192.png" alt="ARC" width={32} height={32} className="w-full h-full object-cover" />
           </div>
           <div>
             <p className="font-bold text-sm text-indigo-900">ARC</p>
