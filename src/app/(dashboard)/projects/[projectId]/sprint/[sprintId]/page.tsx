@@ -126,7 +126,7 @@ export default function SprintPage() {
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-gray-400">{PRIORITY_CONFIG[issue.priority]?.label}</span>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md font-medium">{issue.points}점</span>
+                                <span className="text-xs bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md font-medium">{issue.points}{(issue as any).pointUnit === "DAY" ? "일" : "시간"}</span>
                                 {issue.reviewer && (
                                   <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold ring-1 ring-white" style={{ background: issue.reviewer.color || "#10b981" }} title={`검수: ${issue.reviewer.name}`}>
                                     {issue.reviewer.name.slice(0, 1)}

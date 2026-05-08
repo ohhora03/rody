@@ -49,7 +49,11 @@ const PRIORITY_CONFIG: Record<Priority, { label: string; color: string }> = {
   LOW:    { label: "낮음", color: "#6b7280" },
 };
 
-const POINT_OPTIONS = [1, 2, 3, 5, 8, 13];
+type PointUnit = "HOUR" | "DAY";
+const POINT_UNITS: { value: PointUnit; label: string }[] = [
+  { value: "HOUR", label: "시간" },
+  { value: "DAY",  label: "일" },
+];
 
 function formatDateTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -88,6 +92,7 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
   const [status, setStatus] = useState<IssueStatus>("READY");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [points, setPoints] = useState<number>(1);
+  const [pointUnit, setPointUnit] = useState<PointUnit>("HOUR");
   const [assigneeId, setAssigneeId] = useState("");
   const [reviewerId, setReviewerId] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -105,6 +110,7 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
       setStatus(detail.status);
       setPriority(detail.priority);
       setPoints(detail.points ?? 1);
+      setPointUnit(((detail as any).pointUnit as PointUnit) ?? "HOUR");
       setAssigneeId(detail.assigneeId ?? "");
       setReviewerId(detail.reviewerId ?? "");
       setDueDate(detail.dueDate ? new Date(detail.dueDate).toISOString().split("T")[0] : "");
@@ -121,14 +127,14 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
     try {
       if (isEdit) {
         await mApi.patchIssue(issueId!, {
-          title, description: desc, status, priority, points,
+          title, description: desc, status, priority, points, pointUnit,
           assigneeId: assigneeId || null, reviewerId: reviewerId || null,
           dueDate: dueDate || null,
         });
       } else {
         await mApi.createIssue({
           title, description: desc, projectId,
-          sprintId: sprintId || null, priority, points,
+          sprintId: sprintId || null, priority, points, pointUnit,
           assigneeId: assigneeId || null, reviewerId: reviewerId || null,
           dueDate: dueDate || null,
         });
@@ -317,21 +323,42 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
                 </div>
               </div>
 
-              {/* 스토리 포인트 */}
+              {/* 소요시간 */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>스토리 포인트</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>소요시간</div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {POINT_OPTIONS.map((p) => (
-                    <button key={p} onClick={() => setPoints(p)} style={{
-                      flex: 1, padding: "9px 0", borderRadius: 10, textAlign: "center",
-                      border: `1.5px solid ${points === p ? "#6366f1" : "#e5e7eb"}`,
-                      backgroundColor: points === p ? "#6366f1" : "#fff",
-                      color: points === p ? "#fff" : "#6b7280",
-                      fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
-                    }}>
-                      {p}
-                    </button>
-                  ))}
+                  <input
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    value={points}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v > 0) setPoints(v);
+                    }}
+                    style={{
+                      width: 90, padding: "10px 12px", border: "1.5px solid #e5e7eb",
+                      borderRadius: 10, fontSize: 16, fontWeight: 700, textAlign: "center",
+                      outline: "none", boxSizing: "border-box", color: "#111827",
+                    }}
+                  />
+                  <div style={{ display: "flex", flex: 1, gap: 6 }}>
+                    {POINT_UNITS.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        onClick={() => setPointUnit(value)}
+                        style={{
+                          flex: 1, padding: "10px 0", borderRadius: 10, textAlign: "center",
+                          border: `1.5px solid ${pointUnit === value ? "#6366f1" : "#e5e7eb"}`,
+                          backgroundColor: pointUnit === value ? "#6366f1" : "#fff",
+                          color: pointUnit === value ? "#fff" : "#6b7280",
+                          fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 

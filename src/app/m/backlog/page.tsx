@@ -17,7 +17,7 @@ type Priority = "HIGH" | "MEDIUM" | "LOW";
 interface User { id: string; name: string; color: string }
 interface Issue {
   id: string; title: string; status: IssueStatus; priority: Priority;
-  points: number | null; assignee: User | null;
+  points: number | null; pointUnit?: string; assignee: User | null;
 }
 interface Project { id: string; name: string }
 interface FamilyMember { id: string; role: "MASTER" | "MEMBER"; user: User }
@@ -172,7 +172,7 @@ export default function BacklogPage() {
                       backgroundColor: "#f1f5f9", color: "#6b7280",
                       fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 20,
                     }}>
-                      {issue.points}pt
+                      {issue.points}{issue.pointUnit === "DAY" ? "일" : "시간"}
                     </span>
                   )}
                 </div>

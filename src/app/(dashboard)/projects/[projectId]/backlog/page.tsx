@@ -109,7 +109,7 @@ export default function BacklogPage() {
                 <PriorityDot priority={issue.priority} />
                 <span className="flex-1 text-gray-800 truncate">{issue.title}</span>
                 <StatusBadge status={issue.status} />
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold flex-shrink-0">{issue.points}</span>
+                <span className="flex items-center justify-center rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold flex-shrink-0 px-1.5 py-0.5 whitespace-nowrap">{issue.points}{(issue as any).pointUnit === "DAY" ? "일" : "시간"}</span>
                 {issue.assignee ? (
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0" style={{ background: issue.assignee.color || "#6366f1" }} title={issue.assignee.name}>
                     {issue.assignee.name.slice(0, 1)}

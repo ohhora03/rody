@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
   const body = await req.json();
-  const { title, projectId, sprintId, assigneeId, reviewerId, priority, points, description } = body;
+  const { title, projectId, sprintId, assigneeId, reviewerId, priority, points, pointUnit, description } = body;
 
   if (!title?.trim() || !projectId) return Response.json({ error: "title과 projectId는 필수입니다" }, { status: 400 });
 
@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
       sprintId: sprintId || null,
       status: "READY",
       priority: (priority as Priority) || "MEDIUM",
-      points: points || 1,
+      points: points != null ? Number(points) : 1,
+      pointUnit: pointUnit || "HOUR",
       order: (last?.order ?? -1) + 1,
       assigneeId: assigneeId || null,
       reviewerId: reviewerId || null,

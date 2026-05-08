@@ -15,9 +15,13 @@ type Props = {
   onSave: () => void;
 };
 
-const POINT_OPTIONS = [1, 2, 3, 5, 8, 13];
-
 const ALL_STATUSES = Object.entries(STATUS_CONFIG) as [keyof typeof STATUS_CONFIG, (typeof STATUS_CONFIG)[keyof typeof STATUS_CONFIG]][];
+
+type PointUnit = "HOUR" | "DAY";
+const POINT_UNITS: { value: PointUnit; label: string }[] = [
+  { value: "HOUR", label: "시간" },
+  { value: "DAY",  label: "일" },
+];
 
 export function TaskModal({ task, projectId, sprintId, members, onClose, onSave }: Props) {
   const isEdit = !!task;
@@ -25,7 +29,8 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
   const [desc, setDesc] = useState(task?.description ?? "");
   const [status, setStatus] = useState<IssueStatus>(task?.status ?? "READY");
   const [priority, setPriority] = useState<Priority>(task?.priority ?? "MEDIUM");
-  const [points, setPoints] = useState(task?.points ?? 1);
+  const [points, setPoints] = useState<number>(task?.points ?? 1);
+  const [pointUnit, setPointUnit] = useState<PointUnit>((task as any)?.pointUnit ?? "HOUR");
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId ?? "");
   const [reviewerId, setReviewerId] = useState(task?.reviewerId ?? "");
   const [dueDate, setDueDate] = useState(
@@ -48,7 +53,7 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
         const res = await fetch(`/api/issues/${task!.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc, status, priority, points, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
+          body: JSON.stringify({ title, description: desc, status, priority, points, pointUnit, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
         });
         if (!res.ok) throw new Error();
         toast.success("과제가 저장되었습니다");
@@ -56,7 +61,7 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
         const res = await fetch("/api/issues", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, description: desc, projectId, sprintId: sprintId || null, priority, points, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
+          body: JSON.stringify({ title, description: desc, projectId, sprintId: sprintId || null, priority, points, pointUnit, assigneeId: assigneeId || null, reviewerId: reviewerId || null, dueDate: dueDate || null }),
         });
         if (!res.ok) throw new Error();
         toast.success("과제가 등록되었습니다");
@@ -257,22 +262,37 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
                 </div>
               </div>
 
-              {/* 스토리 포인트 */}
+              {/* 소요시간 */}
               <div>
-                <label className="block text-[10px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">스토리 포인트</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {POINT_OPTIONS.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setPoints(p)}
-                      className={cn(
-                        "w-9 h-9 rounded-lg text-sm font-semibold transition-colors",
-                        points === p ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      )}
-                    >
-                      {p}
-                    </button>
-                  ))}
+                <label className="block text-[10px] font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">소요시간</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    value={points}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v) && v > 0) setPoints(v);
+                    }}
+                    className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-center focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700"
+                  />
+                  <div className="flex gap-1">
+                    {POINT_UNITS.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        onClick={() => setPointUnit(value)}
+                        className={cn(
+                          "px-4 py-2 rounded-lg text-sm font-semibold transition-colors border",
+                          pointUnit === value
+                            ? "bg-indigo-600 text-white border-indigo-600"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
