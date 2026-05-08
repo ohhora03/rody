@@ -25,11 +25,11 @@ export default function LoginPage() {
         name: name.trim() || "새 사용자",
         redirect: false,
       });
-      if (result?.error) {
+      if (result?.error || !result?.ok) {
         toast.error("로그인에 실패했습니다");
       } else {
-        router.push("/");
-        router.refresh();
+        // 풀 리로드: SPA 네비게이션 대신 하드 네비게이션으로 세션 쿠키 확실히 반영
+        window.location.href = "/";
       }
     } finally {
       setLoading(false);

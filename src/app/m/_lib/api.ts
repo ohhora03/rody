@@ -1,4 +1,10 @@
 export const mApi = {
+  // 홈 화면 전체 데이터 한 번에
+  home: () =>
+    fetch("/api/m/home")
+      .then((r) => r.json())
+      .then((d) => d.data),
+
   families: () =>
     fetch("/api/families")
       .then((r) => r.json())
