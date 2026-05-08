@@ -9,6 +9,7 @@ import Avatar from "../_components/Avatar";
 import StatusBadge from "../_components/StatusBadge";
 import PriorityDot from "../_components/PriorityDot";
 import CreateIssueFAB from "../_components/CreateIssueFAB";
+import IssueModal from "../_components/IssueModal";
 
 type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD";
 type Priority = "HIGH" | "MEDIUM" | "LOW";
@@ -49,13 +50,17 @@ function Spinner() {
   );
 }
 
-function TaskItem({ issue }: { issue: Issue }) {
+function TaskItem({ issue, onTap }: { issue: Issue; onTap: () => void }) {
   return (
-    <div style={{
-      backgroundColor: "#fff", borderRadius: 12,
-      boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "12px 14px",
-      marginBottom: 8, display: "flex", alignItems: "center", gap: 10,
-    }}>
+    <button
+      onClick={onTap}
+      style={{
+        width: "100%", backgroundColor: "#fff", borderRadius: 12, textAlign: "left",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)", padding: "12px 14px",
+        marginBottom: 8, display: "flex", alignItems: "center", gap: 10,
+        border: "none", cursor: "pointer",
+      }}
+    >
       <PriorityDot priority={issue.priority} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -65,16 +70,16 @@ function TaskItem({ issue }: { issue: Issue }) {
         <StatusBadge status={issue.status} />
       </div>
       {issue.assignee && <Avatar name={issue.assignee.name ?? "?"} color={issue.assignee.color ?? "#6366f1"} size={28} />}
-    </div>
+    </button>
   );
 }
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [viewMode, setViewMode] = useState<"overview" | "assignee">("overview");
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
-  // 단일 API 호출로 모든 데이터 가져오기
-  const { data, isLoading } = useQuery<HomeData>({
+  const { data, isLoading, refetch } = useQuery<HomeData>({
     queryKey: ["m-home"],
     queryFn: mApi.home,
     enabled: !!session?.user,
@@ -88,6 +93,10 @@ export default function DashboardPage() {
 
   const userId = session?.user?.id;
   const userName = session?.user?.name ?? "사용자";
+
+  const members = (family?.members ?? []).map((m) => ({
+    id: m.user.id, name: m.user.name, color: m.user.color,
+  }));
 
   const total = issues.length;
   const done = issues.filter((i) => DONE.includes(i.status)).length;
@@ -203,7 +212,9 @@ export default function DashboardPage() {
                     textTransform: "uppercase", letterSpacing: "0.05em", padding: "8px 20px",
                   }}>내 과제</div>
                   <div style={{ padding: "0 16px" }}>
-                    {myIssues.map((i) => <TaskItem key={i.id} issue={i} />)}
+                    {myIssues.map((i) => (
+                      <TaskItem key={i.id} issue={i} onTap={() => setSelectedIssueId(i.id)} />
+                    ))}
                   </div>
                 </>
               )}
@@ -212,7 +223,9 @@ export default function DashboardPage() {
                 textTransform: "uppercase", letterSpacing: "0.05em", padding: "8px 20px",
               }}>전체 과제</div>
               <div style={{ padding: "0 16px" }}>
-                {issues.map((i) => <TaskItem key={i.id} issue={i} />)}
+                {issues.map((i) => (
+                  <TaskItem key={i.id} issue={i} onTap={() => setSelectedIssueId(i.id)} />
+                ))}
               </div>
             </>
           ) : (
@@ -237,7 +250,9 @@ export default function DashboardPage() {
                       <div style={{ height: "100%", width: `${r}%`, backgroundColor: "#6366f1", borderRadius: 2 }} />
                     </div>
                     <div style={{ marginTop: 12 }}>
-                      {ui.map((i) => <TaskItem key={i.id} issue={i} />)}
+                      {ui.map((i) => (
+                        <TaskItem key={i.id} issue={i} onTap={() => setSelectedIssueId(i.id)} />
+                      ))}
                     </div>
                   </div>
                 );
@@ -254,6 +269,18 @@ export default function DashboardPage() {
           projectId={project.id}
           sprintId={activeSprint?.id}
           members={family?.members ?? []}
+        />
+      )}
+
+      {/* 과제 상세/편집 모달 */}
+      {selectedIssueId && project && (
+        <IssueModal
+          issueId={selectedIssueId}
+          projectId={project.id}
+          sprintId={activeSprint?.id}
+          members={members}
+          onClose={() => setSelectedIssueId(null)}
+          onSave={() => refetch()}
         />
       )}
     </div>

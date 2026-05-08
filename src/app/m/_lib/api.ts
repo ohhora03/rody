@@ -35,13 +35,6 @@ export const mApi = {
       .then((r) => r.json())
       .then((d) => d.data),
 
-  patchIssue: (issueId: string, body: object) =>
-    fetch(`/api/issues/${issueId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then((r) => r.json()),
-
   createSprint: (projectId: string, body: object) =>
     fetch(`/api/projects/${projectId}/sprints`, {
       method: "POST",
@@ -71,12 +64,37 @@ export const mApi = {
     projectId: string;
     sprintId?: string | null;
     assigneeId?: string | null;
+    reviewerId?: string | null;
     priority?: string;
     points?: number;
+    description?: string;
+    dueDate?: string | null;
   }) =>
     fetch("/api/issues", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+    }).then((r) => r.json()),
+
+  issueDetail: (issueId: string) =>
+    fetch(`/api/issues/${issueId}`)
+      .then((r) => r.json())
+      .then((d) => d.data),
+
+  patchIssue: (issueId: string, body: object) =>
+    fetch(`/api/issues/${issueId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => r.json()),
+
+  deleteIssue: (issueId: string) =>
+    fetch(`/api/issues/${issueId}`, { method: "DELETE" }).then((r) => r.json()),
+
+  addComment: (issueId: string, content: string) =>
+    fetch(`/api/issues/${issueId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
     }).then((r) => r.json()),
 };
