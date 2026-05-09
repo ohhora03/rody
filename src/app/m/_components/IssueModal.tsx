@@ -49,11 +49,6 @@ const PRIORITY_CONFIG: Record<Priority, { label: string; color: string }> = {
   LOW:    { label: "낮음", color: "#6b7280" },
 };
 
-type PointUnit = "HOUR" | "DAY";
-const POINT_UNITS: { value: PointUnit; label: string }[] = [
-  { value: "HOUR", label: "시간" },
-  { value: "DAY",  label: "일" },
-];
 
 function formatDateTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -92,7 +87,6 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
   const [status, setStatus] = useState<IssueStatus>("READY");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [pointsStr, setPointsStr] = useState<string>("1");
-  const [pointUnit, setPointUnit] = useState<PointUnit>("HOUR");
   const [assigneeId, setAssigneeId] = useState("");
   const [reviewerId, setReviewerId] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -110,7 +104,6 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
       setStatus(detail.status);
       setPriority(detail.priority);
       setPointsStr(String(detail.points ?? 1));
-      setPointUnit(((detail as any).pointUnit as PointUnit) ?? "HOUR");
       setAssigneeId(detail.assigneeId ?? "");
       setReviewerId(detail.reviewerId ?? "");
       setDueDate(detail.dueDate ? new Date(detail.dueDate).toISOString().split("T")[0] : "");
@@ -127,14 +120,14 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
     try {
       if (isEdit) {
         await mApi.patchIssue(issueId!, {
-          title, description: desc, status, priority, points: parseFloat(pointsStr) || 1, pointUnit,
+          title, description: desc, status, priority, points: Math.round(parseFloat(pointsStr) || 1),
           assigneeId: assigneeId || null, reviewerId: reviewerId || null,
           dueDate: dueDate || null,
         });
       } else {
         await mApi.createIssue({
           title, description: desc, projectId,
-          sprintId: sprintId || null, priority, points: parseFloat(pointsStr) || 1, pointUnit,
+          sprintId: sprintId || null, priority, points: Math.round(parseFloat(pointsStr) || 1),
           assigneeId: assigneeId || null, reviewerId: reviewerId || null,
           dueDate: dueDate || null,
         });
@@ -324,18 +317,20 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
               </div>
 
               {/* 소요시간 */}
+              {/* 스토리 포인트 */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>소요시간</div>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>스토리 포인트</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <input
                     type="number"
-                    min={0.5}
-                    step={0.5}
+                    min={1}
+                    step={1}
                     value={pointsStr}
                     onChange={(e) => setPointsStr(e.target.value)}
                     onBlur={() => {
-                      const v = parseFloat(pointsStr);
+                      const v = Math.round(parseFloat(pointsStr));
                       if (isNaN(v) || v <= 0) setPointsStr("1");
+                      else setPointsStr(String(v));
                     }}
                     style={{
                       width: 90, padding: "10px 12px", border: "1.5px solid #e5e7eb",
@@ -343,23 +338,7 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
                       outline: "none", boxSizing: "border-box", color: "#111827",
                     }}
                   />
-                  <div style={{ display: "flex", flex: 1, gap: 6 }}>
-                    {POINT_UNITS.map(({ value, label }) => (
-                      <button
-                        key={value}
-                        onClick={() => setPointUnit(value)}
-                        style={{
-                          flex: 1, padding: "10px 0", borderRadius: 10, textAlign: "center",
-                          border: `1.5px solid ${pointUnit === value ? "#6366f1" : "#e5e7eb"}`,
-                          backgroundColor: pointUnit === value ? "#6366f1" : "#fff",
-                          color: pointUnit === value ? "#fff" : "#6b7280",
-                          fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#9ca3af" }}>pt</span>
                 </div>
               </div>
 

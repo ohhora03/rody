@@ -68,7 +68,6 @@ export const mApi = {
     priority?: string;
     points?: number;
     description?: string;
-    pointUnit?: string;
     dueDate?: string | null;
   }) =>
     fetch("/api/issues", {

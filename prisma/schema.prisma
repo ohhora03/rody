@@ -91,7 +91,6 @@ model Issue {
   status      IssueStatus @default(READY)
   priority    Priority    @default(MEDIUM)
   points      Float       @default(1)
-  pointUnit   String      @default("HOUR")
   order       Float       @default(0)
   dueDate     DateTime?
 

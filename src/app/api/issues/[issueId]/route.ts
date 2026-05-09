@@ -60,7 +60,6 @@ export async function PATCH(
       ...(body.status !== undefined && { status: body.status as IssueStatus }),
       ...(body.priority !== undefined && { priority: body.priority as Priority }),
       ...(body.points !== undefined && { points: Number(body.points) }),
-      ...(body.pointUnit !== undefined && { pointUnit: body.pointUnit }),
       ...(body.assigneeId !== undefined && { assigneeId: body.assigneeId }),
       ...(body.reviewerId !== undefined && { reviewerId: body.reviewerId }),
       ...(body.sprintId !== undefined && { sprintId: body.sprintId }),
