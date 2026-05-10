@@ -4,13 +4,11 @@ import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
 import { MEMBER_COLORS } from "@/lib/utils";
 
-// Vercel에서 NEXTAUTH_URL이 없으면 VERCEL_URL로 자동 구성
-if (!process.env.NEXTAUTH_URL && process.env.VERCEL_URL) {
-  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
-}
-
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30일
+  },
   pages: { signIn: "/login" },
   providers: [
     GoogleProvider({
