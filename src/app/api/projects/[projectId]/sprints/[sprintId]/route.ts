@@ -15,7 +15,7 @@ export async function GET(
     where: { id: sprintId },
     include: {
       issues: {
-        include: { assignee: true, creator: true, comments: { include: { author: true } }, sprint: true },
+        include: { assignee: true, reviewer: true },
         orderBy: { order: "asc" },
       },
     },

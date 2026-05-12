@@ -16,10 +16,11 @@ export async function POST(
   });
   if (!member || member.role !== "MASTER") return Response.json({ error: "마스터만 스프린트를 완료할 수 있습니다" }, { status: 403 });
 
-  // 미종료 과제들을 스프린트에서 제외 (백로그로)
+  // 과제는 스프린트에 그대로 유지 (이력 보존)
+  // 진행 중이던 과제는 HOLD 처리
   await prisma.issue.updateMany({
-    where: { sprintId, status: { not: "CLOSED" } },
-    data: { sprintId: null },
+    where: { sprintId, status: "IN_PROGRESS" },
+    data: { status: "HOLD" },
   });
 
   const sprint = await prisma.sprint.update({

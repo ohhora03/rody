@@ -42,12 +42,14 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, account, profile }) {
+      // 로그인 시에만 DB 조회 (이후 JWT에서 직접 읽음)
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
+        token.picture = user.image;
       }
-      // 구글 로그인 시 DB에 유저 upsert
+      // 구글 로그인 시 DB upsert (로그인 1회만 실행)
       if (account?.provider === "google" && profile?.email) {
         const colorIdx = Math.floor(Math.random() * MEMBER_COLORS.length);
         const dbUser = await prisma.user.upsert({
@@ -66,30 +68,18 @@ export const authOptions: NextAuthOptions = {
         token.id = dbUser.id;
         token.email = dbUser.email;
         token.name = dbUser.name;
+        token.picture = dbUser.image;
       }
       return token;
     },
+    // session callback은 DB 조회 없이 JWT 토큰만 사용
+    // → 매 API 요청마다 DB 히트하던 문제 해결
     async session({ session, token }) {
       if (token && session.user) {
-        // 세션 유저가 DB에 없으면 자동 복구
-        const exists = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { id: true },
-        });
-        if (!exists && token.email) {
-          const colorIdx = Math.floor(Math.random() * MEMBER_COLORS.length);
-          const newUser = await prisma.user.upsert({
-            where: { email: token.email as string },
-            update: {},
-            create: {
-              email: token.email as string,
-              name: (token.name as string) || "사용자",
-              color: MEMBER_COLORS[colorIdx],
-            },
-          });
-          token.id = newUser.id;
-        }
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
+        session.user.image = (token.picture as string) ?? null;
       }
       return session;
     },

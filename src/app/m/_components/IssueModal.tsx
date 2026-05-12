@@ -316,7 +316,6 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
                 </div>
               </div>
 
-              {/* 소요시간 */}
               {/* 스토리 포인트 */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>스토리 포인트</div>

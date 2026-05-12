@@ -3,12 +3,12 @@ import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import type { Priority } from "@/types";
 
+// 목록용: 표시에 필요한 필드만 (comments 제외 → 쿼리 대폭 경량화)
 const INCLUDE = {
   assignee: true,
   reviewer: true,
   creator: true,
-  sprint: true,
-  comments: { include: { author: true }, orderBy: { createdAt: "asc" as const } },
+  sprint: { select: { id: true, name: true, status: true } },
 };
 
 export async function GET(req: NextRequest) {

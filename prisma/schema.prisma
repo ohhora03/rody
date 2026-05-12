@@ -48,6 +48,8 @@ model FamilyMember {
   joinedAt DateTime @default(now())
 
   @@unique([userId, familyId])
+  @@index([userId])
+  @@index([familyId])
 }
 
 model Project {
@@ -114,6 +116,11 @@ model Issue {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([sprintId])
+  @@index([assigneeId])
+  @@index([projectId, sprintId])
 }
 
 model Comment {
