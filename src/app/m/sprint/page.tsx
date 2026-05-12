@@ -359,6 +359,7 @@ export default function SprintPage() {
           issueId={selectedIssueId}
           projectId={projectId}
           members={members}
+          initialIssue={sprintDetail?.issues?.find((i: {id: string}) => i.id === selectedIssueId)}
           onClose={() => setSelectedIssueId(null)}
           onSave={() => {
             queryClient.invalidateQueries({ queryKey: ["m-home"] });

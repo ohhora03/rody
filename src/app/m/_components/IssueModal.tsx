@@ -25,11 +25,25 @@ interface IssueDetail {
 
 interface Member { id: string; name: string; color: string }
 
+interface InitialIssue {
+  title: string;
+  status: IssueStatus;
+  priority: Priority;
+  points?: number | null;
+  assigneeId?: string | null;
+  reviewerId?: string | null;
+  dueDate?: string | null;
+  assignee?: User | null;
+  reviewer?: User | null;
+  description?: string | null;
+}
+
 interface Props {
   issueId?: string | null;       // null/undefined = 생성 모드
   projectId: string;
   sprintId?: string | null;
   members?: Member[];
+  initialIssue?: InitialIssue;   // 목록에서 이미 아는 데이터 (즉시 표시용)
   onClose: () => void;
   onSave: () => void;
 }
@@ -68,12 +82,12 @@ function Avatar({ name, color, size = 24 }: { name: string; color: string; size?
   );
 }
 
-export default function IssueModal({ issueId, projectId, sprintId, members = [], onClose, onSave }: Props) {
+export default function IssueModal({ issueId, projectId, sprintId, members = [], initialIssue, onClose, onSave }: Props) {
   const isEdit = !!issueId;
   const queryClient = useQueryClient();
   const activityEndRef = useRef<HTMLDivElement>(null);
 
-  // 편집 모드: 이슈 상세 fetch
+  // 편집 모드: 이슈 상세 fetch (댓글/description 전용)
   const { data: detail, isLoading } = useQuery<IssueDetail>({
     queryKey: ["m-issue-detail", issueId],
     queryFn: () => mApi.issueDetail(issueId!),
@@ -81,22 +95,27 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
     staleTime: 0,
   });
 
-  // 로컬 상태
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [status, setStatus] = useState<IssueStatus>("READY");
-  const [priority, setPriority] = useState<Priority>("MEDIUM");
-  const [pointsStr, setPointsStr] = useState<string>("1");
-  const [assigneeId, setAssigneeId] = useState("");
-  const [reviewerId, setReviewerId] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  // initialIssue 또는 detail에서 초기값 결정 (initialIssue 있으면 즉시 표시 가능)
+  const seed = detail ?? initialIssue;
+
+  // 로컬 상태 - initialIssue 있으면 즉시 초기화
+  const [title, setTitle] = useState(initialIssue?.title ?? "");
+  const [desc, setDesc] = useState(initialIssue?.description ?? "");
+  const [status, setStatus] = useState<IssueStatus>(initialIssue?.status ?? "READY");
+  const [priority, setPriority] = useState<Priority>(initialIssue?.priority ?? "MEDIUM");
+  const [pointsStr, setPointsStr] = useState<string>(String(initialIssue?.points ?? 1));
+  const [assigneeId, setAssigneeId] = useState(initialIssue?.assigneeId ?? "");
+  const [reviewerId, setReviewerId] = useState(initialIssue?.reviewerId ?? "");
+  const [dueDate, setDueDate] = useState(
+    initialIssue?.dueDate ? new Date(initialIssue.dueDate).toISOString().split("T")[0] : ""
+  );
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // 편집모드: 로딩 완료 시 필드 초기화
+  // detail 로딩 완료 시 나머지 필드 보완 (description, dueDate 등 목록에 없는 값)
   useEffect(() => {
     if (detail) {
       setTitle(detail.title);
@@ -242,9 +261,9 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
           </button>
         </div>
 
-        {/* 스크롤 본문 */}
+        {/* 스크롤 본문 - initialIssue 있으면 즉시 표시, 없으면 로딩 대기 */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 8px" }}>
-          {isLoading ? (
+          {isLoading && !seed ? (
             <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
               <div style={{
                 width: 28, height: 28, border: "3px solid #e0e7ff",
@@ -419,7 +438,15 @@ export default function IssueModal({ issueId, projectId, sprintId, members = [],
                 <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 16, marginBottom: 8 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>활동 내역</div>
 
-                  {(!detail?.comments || detail.comments.length === 0) ? (
+                  {isLoading ? (
+                    <div style={{ display: "flex", justifyContent: "center", padding: "12px 0" }}>
+                      <div style={{
+                        width: 20, height: 20, border: "2px solid #e0e7ff",
+                        borderTopColor: "#6366f1", borderRadius: "50%",
+                        animation: "spin 0.7s linear infinite",
+                      }} />
+                    </div>
+                  ) : (!detail?.comments || detail.comments.length === 0) ? (
                     <div style={{ textAlign: "center", padding: "16px 0", color: "#9ca3af", fontSize: 13 }}>
                       아직 활동이 없습니다
                     </div>

@@ -189,6 +189,7 @@ export default function BacklogPage() {
           issueId={selectedIssueId}
           projectId={projectId}
           members={members}
+          initialIssue={issues.find(i => i.id === selectedIssueId)}
           onClose={() => setSelectedIssueId(null)}
           onSave={() => queryClient.invalidateQueries({ queryKey: ["m-home"] })}
         />

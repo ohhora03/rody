@@ -37,15 +37,53 @@ interface HomeData {
 const DONE: IssueStatus[] = ["RESOLVED", "CLOSED"];
 const IN_PROG: IssueStatus[] = ["IN_PROGRESS"];
 
-function Spinner() {
+function SkeletonBlock({ w, h, radius = 8 }: { w: string | number; h: number; radius?: number }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, minHeight: 300 }}>
-      <div style={{
-        width: 32, height: 32, border: "3px solid #e0e7ff",
-        borderTopColor: "#6366f1", borderRadius: "50%",
-        animation: "spin 0.7s linear infinite",
-      }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div style={{
+      width: w, height: h, borderRadius: radius,
+      background: "linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%)",
+      backgroundSize: "200% 100%",
+      animation: "shimmer 1.4s infinite",
+    }} />
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div style={{ background: "#f8fafc", minHeight: "100%" }}>
+      <style>{`
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+      `}</style>
+      {/* 헤더 */}
+      <div style={{ padding: "24px 20px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <SkeletonBlock w={180} h={24} />
+        <SkeletonBlock w={100} h={16} />
+      </div>
+      {/* 스프린트 카드 */}
+      <div style={{ margin: "0 16px 16px", backgroundColor: "#fff", borderRadius: 16, padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <SkeletonBlock w={60} h={22} radius={20} />
+          <SkeletonBlock w={120} h={22} />
+        </div>
+        <SkeletonBlock w="100%" h={14} />
+        <div style={{ display: "flex", gap: 8, margin: "14px 0" }}>
+          {[0,1,2,3].map(i => <SkeletonBlock key={i} w="25%" h={52} radius={10} />)}
+        </div>
+        <SkeletonBlock w="100%" h={6} radius={3} />
+      </div>
+      {/* 과제 목록 */}
+      <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {[0,1,2,3].map(i => (
+          <div key={i} style={{ backgroundColor: "#fff", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <SkeletonBlock w={10} h={10} radius={5} />
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+              <SkeletonBlock w={`${60 + i * 10}%`} h={14} />
+              <SkeletonBlock w={50} h={18} radius={20} />
+            </div>
+            <SkeletonBlock w={32} h={32} radius={16} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -113,7 +151,7 @@ export default function DashboardPage() {
     memberMap.get(k)!.issues.push(issue);
   });
 
-  if (isLoading) return <Spinner />;
+  if (isLoading) return <DashboardSkeleton />;
 
   return (
     <div style={{ background: "#f8fafc", minHeight: "100%" }}>
@@ -279,6 +317,7 @@ export default function DashboardPage() {
           projectId={project.id}
           sprintId={activeSprint?.id}
           members={members}
+          initialIssue={issues.find(i => i.id === selectedIssueId)}
           onClose={() => setSelectedIssueId(null)}
           onSave={() => refetch()}
         />
