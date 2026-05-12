@@ -1,8 +1,10 @@
-// ARC Service Worker
-const CACHE_NAME = 'arc-v1';
-const OFFLINE_URL = '/m/dashboard';
+// ARC Service Worker v3
+// - 정적 assets(content-hash)만 cache-first
+// - HTML, RSC, _next/data: network-first (배포 즉시 반영)
+// - API: network only
 
-// 캐시할 정적 리소스
+const CACHE_NAME = 'arc-v3';
+
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icon-192.png',
@@ -27,25 +29,43 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // API 요청은 항상 네트워크 우선
-  if (event.request.url.includes('/api/')) {
-    event.respondWith(fetch(event.request).catch(() => new Response('offline', { status: 503 })));
+  if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // API 요청: 항상 네트워크
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(event.request).catch(() => new Response('{"error":"offline"}', { status: 503 }))
+    );
     return;
   }
 
-  // 정적 리소스: 캐시 우선
-  if (event.request.method === 'GET') {
+  // Next.js content-hashed 번들: 캐시 우선 (파일명에 hash 포함)
+  if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
-        const networkFetch = fetch(event.request).then((res) => {
+        if (cached) return cached;
+        return fetch(event.request).then((res) => {
           if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
           }
           return res;
         });
-        return cached || networkFetch;
       })
     );
+    return;
   }
+
+  // 그 외 (HTML 페이지, RSC payload 등): 네트워크 우선, 실패 시 캐시
+  event.respondWith(
+    fetch(event.request)
+      .then((res) => {
+        if (res.ok && res.type !== 'opaque') {
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+        }
+        return res;
+      })
+      .catch(() => caches.match(event.request))
+  );
 });

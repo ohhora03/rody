@@ -34,14 +34,23 @@ export async function GET(req: NextRequest) {
   const project = family.projects[0] ?? null;
   const activeSprint = project?.sprints.find((s) => s.status === "ACTIVE") ?? null;
 
-  // 이슈는 활성 스프린트가 있을 때만 조회
-  const issues = activeSprint
-    ? await prisma.issue.findMany({
-        where: { projectId: project!.id, sprintId: activeSprint.id },
-        include: { assignee: true, creator: true },
-        orderBy: { order: "asc" },
-      })
-    : [];
+  // 스프린트 이슈 + 백로그 이슈를 병렬로 한 번에 조회
+  const [issues, backlogIssues] = project
+    ? await Promise.all([
+        activeSprint
+          ? prisma.issue.findMany({
+              where: { projectId: project.id, sprintId: activeSprint.id },
+              include: { assignee: true, creator: true },
+              orderBy: { order: "asc" },
+            })
+          : Promise.resolve([]),
+        prisma.issue.findMany({
+          where: { projectId: project.id, sprintId: null },
+          include: { assignee: true },
+          orderBy: { order: "asc" },
+        }),
+      ])
+    : [[], []];
 
   return Response.json(
     {
@@ -50,6 +59,7 @@ export async function GET(req: NextRequest) {
         project,
         activeSprint,
         issues,
+        backlogIssues,
       },
     },
     {

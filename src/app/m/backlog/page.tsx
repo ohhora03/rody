@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { mApi } from "../_lib/api";
 import Avatar from "../_components/Avatar";
@@ -44,12 +44,14 @@ const STATUS_LABELS: Record<IssueStatus, string> = {
 
 export default function BacklogPage() {
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<IssueStatus | "ALL">("ALL");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
-  const { data: homeData, isLoading: loadingHome } = useQuery<{
+  const { data: homeData, isLoading, refetch } = useQuery<{
     families: Family[];
     project: Project | null;
+    backlogIssues: Issue[];
   }>({
     queryKey: ["m-home"],
     queryFn: mApi.home,
@@ -59,22 +61,11 @@ export default function BacklogPage() {
 
   const family = homeData?.families?.[0] ?? null;
   const projectId = homeData?.project?.id ?? null;
+  const issues = homeData?.backlogIssues ?? [];
 
   const members = (family?.members ?? []).map((m) => ({
     id: m.user.id, name: m.user.name, color: m.user.color,
   }));
-
-  const {
-    data: issues,
-    isLoading: loadingIssues,
-    refetch,
-  } = useQuery<Issue[]>({
-    queryKey: ["m-backlog", projectId],
-    queryFn: () => mApi.backlog(projectId!),
-    enabled: !!projectId,
-  });
-
-  const isLoading = loadingHome || loadingIssues;
 
   const presentStatuses = ALL_STATUSES.filter((s) => issues?.some((i) => i.status === s));
 
@@ -99,7 +90,7 @@ export default function BacklogPage() {
           </span>
         </div>
         <button
-          onClick={() => refetch()}
+          onClick={() => queryClient.invalidateQueries({ queryKey: ["m-home"] })}
           style={{ background: "none", border: "none", cursor: "pointer", padding: 6, color: "#6b7280", display: "flex", alignItems: "center" }}
         >
           <RefreshCw size={18} />
@@ -199,7 +190,7 @@ export default function BacklogPage() {
           projectId={projectId}
           members={members}
           onClose={() => setSelectedIssueId(null)}
-          onSave={() => refetch()}
+          onSave={() => queryClient.invalidateQueries({ queryKey: ["m-home"] })}
         />
       )}
     </div>
