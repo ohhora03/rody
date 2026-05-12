@@ -60,33 +60,28 @@ export default function SprintPage() {
   const [newSprintGoal, setNewSprintGoal] = useState("");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
-  const { data: families, isLoading: loadingFamilies } = useQuery<Family[]>({
-    queryKey: ["m-families"],
-    queryFn: mApi.families,
+  const { data: homeData, isLoading: loadingHome } = useQuery<{
+    families: Family[];
+    project: (Project & { sprints: Sprint[] }) | null;
+    activeSprint: Sprint | null;
+  }>({
+    queryKey: ["m-home"],
+    queryFn: mApi.home,
     enabled: !!session?.user,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const family = families?.[0];
+  const family = homeData?.families?.[0] ?? null;
+  const project = homeData?.project ?? null;
+  const projectId = project?.id ?? null;
+  const sprints = project?.sprints ?? [];
+
   const currentMember = family?.members.find((m) => m.user.id === session?.user?.id);
   const isMaster = currentMember?.role === "MASTER";
 
   const members = (family?.members ?? []).map((m) => ({
     id: m.user.id, name: m.user.name, color: m.user.color,
   }));
-
-  const { data: projects, isLoading: loadingProjects } = useQuery<Project[]>({
-    queryKey: ["m-projects", family?.id],
-    queryFn: () => mApi.projects(family!.id),
-    enabled: !!family?.id,
-  });
-
-  const projectId = projects?.[0]?.id ?? null;
-
-  const { data: sprints, isLoading: loadingSprints, refetch: refetchSprints } = useQuery<Sprint[]>({
-    queryKey: ["m-sprints", projectId],
-    queryFn: () => mApi.sprints(projectId!),
-    enabled: !!projectId,
-  });
 
   const { data: sprintDetail, isLoading: loadingDetail, refetch: refetchDetail } = useQuery<Sprint>({
     queryKey: ["m-sprint-detail", projectId, expandedSprintId],
@@ -96,25 +91,25 @@ export default function SprintPage() {
 
   const startMutation = useMutation({
     mutationFn: (sprintId: string) => mApi.startSprint(projectId!, sprintId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["m-sprints"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["m-home"] }),
   });
 
   const completeMutation = useMutation({
     mutationFn: (sprintId: string) => mApi.completeSprint(projectId!, sprintId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["m-sprints"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["m-home"] }),
   });
 
   const createMutation = useMutation({
     mutationFn: () => mApi.createSprint(projectId!, { name: newSprintName, goal: newSprintGoal || undefined }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["m-sprints"] });
+      queryClient.invalidateQueries({ queryKey: ["m-home"] });
       setShowCreateModal(false);
       setNewSprintName("");
       setNewSprintGoal("");
     },
   });
 
-  const isLoading = loadingFamilies || loadingProjects || loadingSprints;
+  const isLoading = loadingHome;
 
   const sortedSprints = sprints
     ? [...sprints].sort((a, b) => {
@@ -366,8 +361,8 @@ export default function SprintPage() {
           members={members}
           onClose={() => setSelectedIssueId(null)}
           onSave={() => {
-            refetchSprints();
-            refetchDetail();
+            queryClient.invalidateQueries({ queryKey: ["m-home"] });
+            queryClient.invalidateQueries({ queryKey: ["m-sprint-detail"] });
           }}
         />
       )}

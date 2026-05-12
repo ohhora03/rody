@@ -47,25 +47,22 @@ export default function BacklogPage() {
   const [filterStatus, setFilterStatus] = useState<IssueStatus | "ALL">("ALL");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
-  const { data: families, isLoading: loadingFamilies } = useQuery<Family[]>({
-    queryKey: ["m-families"],
-    queryFn: mApi.families,
+  const { data: homeData, isLoading: loadingHome } = useQuery<{
+    families: Family[];
+    project: Project | null;
+  }>({
+    queryKey: ["m-home"],
+    queryFn: mApi.home,
     enabled: !!session?.user,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const family = families?.[0];
+  const family = homeData?.families?.[0] ?? null;
+  const projectId = homeData?.project?.id ?? null;
 
   const members = (family?.members ?? []).map((m) => ({
     id: m.user.id, name: m.user.name, color: m.user.color,
   }));
-
-  const { data: projects, isLoading: loadingProjects } = useQuery<Project[]>({
-    queryKey: ["m-projects", family?.id],
-    queryFn: () => mApi.projects(family!.id),
-    enabled: !!family?.id,
-  });
-
-  const projectId = projects?.[0]?.id ?? null;
 
   const {
     data: issues,
@@ -77,7 +74,7 @@ export default function BacklogPage() {
     enabled: !!projectId,
   });
 
-  const isLoading = loadingFamilies || loadingProjects || loadingIssues;
+  const isLoading = loadingHome || loadingIssues;
 
   const presentStatuses = ALL_STATUSES.filter((s) => issues?.some((i) => i.status === s));
 

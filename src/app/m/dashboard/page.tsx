@@ -83,7 +83,7 @@ export default function DashboardPage() {
     queryKey: ["m-home"],
     queryFn: mApi.home,
     enabled: !!session?.user,
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
   });
 
   const family = data?.families?.[0] ?? null;
