@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import BottomNav from "./_components/BottomNav";
+import OnboardingGuide from "./_components/OnboardingGuide";
 
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -28,6 +29,7 @@ export default async function MobileLayout({ children }: { children: React.React
         {children}
       </main>
       <BottomNav />
+      <OnboardingGuide />
     </div>
   );
 }
