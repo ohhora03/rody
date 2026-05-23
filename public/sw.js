@@ -1,9 +1,9 @@
-// ARC Service Worker v3
+// ARC Service Worker v4
 // - 정적 assets(content-hash)만 cache-first
 // - HTML, RSC, _next/data: network-first (배포 즉시 반영)
 // - API: network only
 
-const CACHE_NAME = 'arc-v3';
+const CACHE_NAME = 'arc-v4';
 
 const STATIC_ASSETS = [
   '/manifest.json',
