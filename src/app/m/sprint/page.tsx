@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, PenLine, X } from "lucide-react";
+import { ChevronDown, ChevronUp, PenLine, X, MoveRight } from "lucide-react";
 import { mApi } from "../_lib/api";
 import StatusBadge from "../_components/StatusBadge";
 import PriorityDot from "../_components/PriorityDot";
@@ -59,6 +59,8 @@ export default function SprintPage() {
   const [newSprintName, setNewSprintName] = useState("");
   const [newSprintGoal, setNewSprintGoal] = useState("");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  // 스프린트 이동
+  const [movingIssue, setMovingIssue] = useState<{ id: string; title: string; currentSprintId: string } | null>(null);
 
   const { data: homeData, isLoading: loadingHome } = useQuery<{
     families: Family[];
@@ -106,6 +108,16 @@ export default function SprintPage() {
       setShowCreateModal(false);
       setNewSprintName("");
       setNewSprintGoal("");
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: ({ issueId, sprintId }: { issueId: string; sprintId: string | null }) =>
+      mApi.patchIssue(issueId, { sprintId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["m-home"] });
+      queryClient.invalidateQueries({ queryKey: ["m-sprint-detail"] });
+      setMovingIssue(null);
     },
   });
 
@@ -206,32 +218,54 @@ export default function SprintPage() {
                     ) : (
                       <div style={{ padding: "8px 12px" }}>
                         {detailIssues.map((issue) => (
-                          <button
+                          <div
                             key={issue.id}
-                            onClick={() => setSelectedIssueId(issue.id)}
                             style={{
-                              width: "100%", background: "none", border: "none", cursor: "pointer",
-                              display: "flex", alignItems: "center", gap: 8,
-                              padding: "10px 4px", borderBottom: "1px solid #f8fafc",
-                              textAlign: "left",
+                              display: "flex", alignItems: "center", gap: 6,
+                              padding: "8px 4px", borderBottom: "1px solid #f8fafc",
                             }}
                           >
-                            <PriorityDot priority={issue.priority} />
-                            <span style={{
-                              flex: 1, fontSize: 13, color: "#111827",
-                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                            }}>
-                              {issue.title}
-                            </span>
-                            <StatusBadge status={issue.status} />
-                            {issue.assignee && (
-                              <Avatar
-                                name={issue.assignee.name ?? "?"}
-                                color={issue.assignee.color ?? "#6366f1"}
-                                size={24}
-                              />
-                            )}
-                          </button>
+                            {/* 이슈 상세 버튼 */}
+                            <button
+                              onClick={() => setSelectedIssueId(issue.id)}
+                              style={{
+                                flex: 1, background: "none", border: "none", cursor: "pointer",
+                                display: "flex", alignItems: "center", gap: 8,
+                                textAlign: "left", minWidth: 0,
+                              }}
+                            >
+                              <PriorityDot priority={issue.priority} />
+                              <span style={{
+                                flex: 1, fontSize: 13, color: "#111827",
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              }}>
+                                {issue.title}
+                              </span>
+                              <StatusBadge status={issue.status} />
+                              {issue.assignee && (
+                                <Avatar
+                                  name={issue.assignee.name ?? "?"}
+                                  color={issue.assignee.color ?? "#6366f1"}
+                                  size={24}
+                                />
+                              )}
+                            </button>
+                            {/* 스프린트 이동 버튼 */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMovingIssue({ id: issue.id, title: issue.title, currentSprintId: sprint.id });
+                              }}
+                              title="다른 스프린트로 이동"
+                              style={{
+                                flexShrink: 0, background: "#f1f5f9", border: "none",
+                                borderRadius: 8, padding: "5px 7px", cursor: "pointer",
+                                display: "flex", alignItems: "center", color: "#6b7280",
+                              }}
+                            >
+                              <MoveRight size={14} />
+                            </button>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -349,6 +383,96 @@ export default function SprintPage() {
             >
               {createMutation.isPending ? "생성 중..." : "스프린트 생성"}
             </button>
+          </div>
+        </>
+      )}
+
+      {/* 스프린트 이동 바텀시트 */}
+      {movingIssue && (
+        <>
+          <div
+            onClick={() => setMovingIssue(null)}
+            style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", zIndex: 200 }}
+          />
+          <div style={{
+            position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 201,
+            backgroundColor: "#fff", borderRadius: "20px 20px 0 0",
+            padding: "20px 20px",
+            paddingBottom: "max(20px, env(safe-area-inset-bottom))",
+            maxHeight: "70dvh", display: "flex", flexDirection: "column",
+          }}>
+            {/* 핸들 */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 4 }}>스프린트 이동</div>
+            <div style={{
+              fontSize: 13, color: "#6b7280", marginBottom: 16,
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              "{movingIssue.title}"
+            </div>
+
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {/* 백로그로 이동 */}
+              <button
+                onClick={() => moveMutation.mutate({ issueId: movingIssue.id, sprintId: null })}
+                disabled={moveMutation.isPending}
+                style={{
+                  width: "100%", textAlign: "left", padding: "14px 16px",
+                  borderRadius: 12, border: "1.5px solid #e5e7eb",
+                  backgroundColor: "#f8fafc", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 10,
+                  marginBottom: 8, opacity: moveMutation.isPending ? 0.7 : 1,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>📦</span>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>백로그</div>
+                  <div style={{ fontSize: 12, color: "#9ca3af" }}>스프린트에서 제외</div>
+                </div>
+              </button>
+
+              {/* 다른 스프린트들 */}
+              {sortedSprints
+                .filter((s) => s.id !== movingIssue.currentSprintId)
+                .map((s) => {
+                  const cfg = SPRINT_STATUS_CONFIG[s.status];
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => moveMutation.mutate({ issueId: movingIssue.id, sprintId: s.id })}
+                      disabled={moveMutation.isPending}
+                      style={{
+                        width: "100%", textAlign: "left", padding: "14px 16px",
+                        borderRadius: 12, border: "1.5px solid #e5e7eb",
+                        backgroundColor: "#fff", cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: 10,
+                        marginBottom: 8, opacity: moveMutation.isPending ? 0.7 : 1,
+                      }}
+                    >
+                      <span style={{ fontSize: 18 }}>⚡</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {s.name}
+                        </div>
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, color: cfg.color,
+                          backgroundColor: cfg.bg, padding: "1px 7px", borderRadius: 20,
+                        }}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+
+              {sortedSprints.filter((s) => s.id !== movingIssue.currentSprintId).length === 0 && (
+                <div style={{ textAlign: "center", padding: "20px", color: "#9ca3af", fontSize: 13 }}>
+                  이동할 다른 스프린트가 없어요
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
