@@ -22,6 +22,8 @@ model User {
   reviewedTasks     Issue[]        @relation("ReviewedIssues")
   createdTasks      Issue[]        @relation("CreatedIssues")
   comments          Comment[]
+  myTasks           MyTask[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Family {
@@ -163,4 +165,47 @@ enum Priority {
   HIGH
   MEDIUM
   LOW
+}
+
+enum TaskStatus {
+  PENDING
+  DONE
+}
+
+enum RepeatType {
+  NONE
+  DAILY
+  WEEKLY
+}
+
+model MyTask {
+  id        String     @id @default(cuid())
+  title     String
+  memo      String?
+  priority  Priority   @default(MEDIUM)
+  status    TaskStatus @default(PENDING)
+  dueDate   DateTime?
+  repeat    RepeatType @default(NONE)
+  ownerId   String
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([ownerId])
+  @@index([ownerId, status])
+  @@index([ownerId, dueDate])
+}
+
+model PushSubscription {
+  id           String   @id @default(cuid())
+  userId       String
+  endpoint     String   @unique
+  p256dh       String
+  auth         String
+  reminderHour Int      @default(21)
+  enabled      Boolean  @default(true)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
 }

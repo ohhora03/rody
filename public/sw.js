@@ -69,3 +69,23 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+// Push notification handlers
+self.addEventListener('push', (event) => {
+  const data = event.data?.json() ?? {};
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? 'ARC 알림', {
+      body: data.body ?? '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url ?? '/m/my-tasks' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.openWindow(event.notification.data?.url ?? '/m/my-tasks')
+  );
+});

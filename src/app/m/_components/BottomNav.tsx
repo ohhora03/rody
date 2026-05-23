@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ClipboardList, Zap, Settings } from "lucide-react";
+import { Home, ClipboardList, Zap, CheckSquare, Settings } from "lucide-react";
 
 const TABS = [
   { href: "/m/dashboard", label: "홈", Icon: Home },
   { href: "/m/backlog", label: "백로그", Icon: ClipboardList },
   { href: "/m/sprint", label: "스프린트", Icon: Zap },
+  { href: "/m/my-tasks", label: "내 할 일", Icon: CheckSquare },
   { href: "/m/settings", label: "설정", Icon: Settings },
 ];
 

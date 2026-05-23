@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Copy, Check, X, LogOut } from "lucide-react";
+import { Bell, Copy, Check, X, LogOut } from "lucide-react";
 import { mApi } from "../_lib/api";
 import Avatar from "../_components/Avatar";
 
@@ -25,6 +25,186 @@ interface Family {
   name: string;
   inviteCode: string;
   members: FamilyMember[];
+}
+
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const buffer = new ArrayBuffer(rawData.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < rawData.length; ++i) {
+    view[i] = rawData.charCodeAt(i);
+  }
+  return buffer;
+}
+
+function PushNotificationSection() {
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [permission, setPermission] = useState<NotificationPermission>("default");
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const isSupported =
+      typeof window !== "undefined" &&
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window;
+    setSupported(isSupported);
+    if (!isSupported) return;
+
+    setPermission(Notification.permission);
+    (async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setIsSubscribed(!!sub);
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
+  async function handleEnable() {
+    setError(null);
+    setBusy(true);
+    try {
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!publicKey) {
+        setError("VAPID 키가 설정되지 않았어요.");
+        return;
+      }
+
+      const perm = await Notification.requestPermission();
+      setPermission(perm);
+      if (perm !== "granted") {
+        setError("알림 권한이 거부되었어요. 브라우저 설정에서 허용해주세요.");
+        return;
+      }
+
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToArrayBuffer(publicKey),
+        });
+      }
+      const json = sub.toJSON();
+      const res = await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: json.endpoint,
+          p256dh: json.keys?.p256dh,
+          auth: json.keys?.auth,
+        }),
+      });
+      if (!res.ok) throw new Error("서버 등록 실패");
+      setIsSubscribed(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "구독에 실패했어요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDisable() {
+    setError(null);
+    setBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+      setIsSubscribed(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "해제에 실패했어요.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (supported === null) return null;
+
+  return (
+    <>
+      <SectionHeader title="알림 설정" />
+      <div style={{ padding: "0 16px" }}>
+        <Card>
+          <Row isLast>
+            <Bell size={18} color="#6366f1" style={{ marginRight: 12 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
+                푸시 알림
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                {!supported
+                  ? "이 브라우저에서는 지원하지 않아요"
+                  : permission === "denied"
+                  ? "권한이 거부되었어요 (브라우저 설정에서 변경)"
+                  : isSubscribed
+                  ? "오전 8시 · 오후 9시(KST)에 알려드려요"
+                  : "미완료 과제를 매일 알림으로 받아보세요"}
+              </div>
+            </div>
+            <button
+              onClick={isSubscribed ? handleDisable : handleEnable}
+              disabled={!supported || busy || permission === "denied"}
+              style={{
+                width: 48,
+                height: 28,
+                borderRadius: 999,
+                border: "none",
+                cursor:
+                  !supported || busy || permission === "denied"
+                    ? "not-allowed"
+                    : "pointer",
+                backgroundColor: isSubscribed ? "#6366f1" : "#e5e7eb",
+                position: "relative",
+                transition: "background-color 0.15s",
+                opacity: !supported || permission === "denied" ? 0.5 : 1,
+              }}
+              aria-label={isSubscribed ? "푸시 알림 끄기" : "푸시 알림 켜기"}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: isSubscribed ? 22 : 2,
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  transition: "left 0.15s",
+                }}
+              />
+            </button>
+          </Row>
+        </Card>
+        {error && (
+          <div
+            style={{
+              fontSize: 12,
+              color: "#ef4444",
+              padding: "8px 4px 0",
+            }}
+          >
+            {error}
+          </div>
+        )}
+      </div>
+    </>
+  );
 }
 
 function Spinner() {
@@ -278,6 +458,9 @@ export default function SettingsPage() {
           </Row>
         </Card>
       </div>
+
+      {/* Push notifications */}
+      <PushNotificationSection />
 
       {/* Account */}
       <SectionHeader title="계정" />
