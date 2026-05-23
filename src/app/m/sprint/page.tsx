@@ -58,6 +58,9 @@ export default function SprintPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSprintName, setNewSprintName] = useState("");
   const [newSprintGoal, setNewSprintGoal] = useState("");
+  const [newSprintStartDate, setNewSprintStartDate] = useState("");
+  const [newSprintEndDate, setNewSprintEndDate] = useState("");
+  const [startError, setStartError] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   // 스프린트 이동
   const [movingIssue, setMovingIssue] = useState<{ id: string; title: string; currentSprintId: string } | null>(null);
@@ -93,7 +96,14 @@ export default function SprintPage() {
 
   const startMutation = useMutation({
     mutationFn: (sprintId: string) => mApi.startSprint(projectId!, sprintId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["m-home"] }),
+    onSuccess: (data) => {
+      if (data?.error) {
+        setStartError(data.error);
+        return;
+      }
+      setStartError(null);
+      queryClient.invalidateQueries({ queryKey: ["m-home"] });
+    },
   });
 
   const completeMutation = useMutation({
@@ -102,12 +112,19 @@ export default function SprintPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => mApi.createSprint(projectId!, { name: newSprintName, goal: newSprintGoal || undefined }),
+    mutationFn: () => mApi.createSprint(projectId!, {
+      name: newSprintName,
+      goal: newSprintGoal || undefined,
+      startDate: newSprintStartDate || undefined,
+      endDate: newSprintEndDate || undefined,
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["m-home"] });
       setShowCreateModal(false);
       setNewSprintName("");
       setNewSprintGoal("");
+      setNewSprintStartDate("");
+      setNewSprintEndDate("");
     },
   });
 
@@ -272,10 +289,18 @@ export default function SprintPage() {
 
                     {/* Action buttons */}
                     {isMaster && (
-                      <div style={{ padding: "10px 16px 14px", display: "flex", gap: 8 }}>
+                      <div style={{ padding: "10px 16px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {startError && expandedSprintId === sprint.id && (
+                          <div style={{
+                            padding: "8px 12px", backgroundColor: "#fef2f2", border: "1px solid #fecaca",
+                            borderRadius: 8, fontSize: 12, color: "#ef4444",
+                          }}>
+                            {startError}
+                          </div>
+                        )}
                         {sprint.status === "PLANNING" && (
                           <button
-                            onClick={() => startMutation.mutate(sprint.id)}
+                            onClick={() => { setStartError(null); startMutation.mutate(sprint.id); }}
                             disabled={startMutation.isPending}
                             style={{
                               flex: 1, padding: "10px", backgroundColor: "#6366f1", color: "#fff",
@@ -356,13 +381,13 @@ export default function SprintPage() {
               />
             </label>
 
-            <label style={{ display: "block", marginBottom: 24 }}>
+            <label style={{ display: "block", marginBottom: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>스프린트 목표</div>
               <textarea
                 value={newSprintGoal}
                 onChange={(e) => setNewSprintGoal(e.target.value)}
                 placeholder="이번 스프린트의 목표를 입력하세요"
-                rows={3}
+                rows={2}
                 style={{
                   width: "100%", padding: "11px 14px", border: "1.5px solid #e5e7eb",
                   borderRadius: 10, fontSize: 14, outline: "none", resize: "none",
@@ -370,6 +395,35 @@ export default function SprintPage() {
                 }}
               />
             </label>
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+              <label style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>시작일</div>
+                <input
+                  type="date"
+                  value={newSprintStartDate}
+                  onChange={(e) => setNewSprintStartDate(e.target.value)}
+                  style={{
+                    width: "100%", padding: "11px 10px", border: "1.5px solid #e5e7eb",
+                    borderRadius: 10, fontSize: 13, outline: "none", boxSizing: "border-box",
+                    color: newSprintStartDate ? "#111827" : "#9ca3af",
+                  }}
+                />
+              </label>
+              <label style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>종료일</div>
+                <input
+                  type="date"
+                  value={newSprintEndDate}
+                  onChange={(e) => setNewSprintEndDate(e.target.value)}
+                  style={{
+                    width: "100%", padding: "11px 10px", border: "1.5px solid #e5e7eb",
+                    borderRadius: 10, fontSize: 13, outline: "none", boxSizing: "border-box",
+                    color: newSprintEndDate ? "#111827" : "#9ca3af",
+                  }}
+                />
+              </label>
+            </div>
 
             <button
               onClick={() => createMutation.mutate()}
