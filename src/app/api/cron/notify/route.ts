@@ -25,7 +25,8 @@ async function handle(req: Request) {
     include: {
       user: {
         include: {
-          myTasks: { where: { status: "PENDING" } },
+          ownedMyTasks: { where: { status: "PENDING" } },
+          assignedMyTasks: { where: { status: "PENDING" } },
         },
       },
     },
@@ -36,7 +37,11 @@ async function handle(req: Request) {
 
   const results = await Promise.allSettled(
     subscriptions.map(async (sub) => {
-      const pendingCount = sub.user.myTasks.length;
+      // owner이거나 assignee인 PENDING 과제 (중복 제거)
+      const ids = new Set<string>();
+      sub.user.ownedMyTasks.forEach((t) => ids.add(t.id));
+      sub.user.assignedMyTasks.forEach((t) => ids.add(t.id));
+      const pendingCount = ids.size;
       if (pendingCount === 0) {
         skipped++;
         return;

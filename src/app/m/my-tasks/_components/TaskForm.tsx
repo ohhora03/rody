@@ -15,6 +15,9 @@ export interface MyTask {
   dueDate: string | null;
   repeat: RepeatType;
   ownerId: string;
+  assigneeId: string | null;
+  owner?: { id: string; name: string } | null;
+  assignee?: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,12 +28,20 @@ export interface TaskFormValues {
   priority: Priority;
   dueDate: string | null;
   repeat: RepeatType;
+  assigneeId: string | null;
+}
+
+export interface FamilyMemberOption {
+  id: string;
+  name: string;
 }
 
 interface Props {
   initial?: Partial<TaskFormValues>;
   submitLabel?: string;
   submitting?: boolean;
+  currentUserId?: string;
+  familyMembers?: FamilyMemberOption[];
   onSubmit: (values: TaskFormValues) => void;
   onCancel?: () => void;
 }
@@ -50,6 +61,8 @@ export default function TaskForm({
   initial,
   submitLabel = "저장",
   submitting = false,
+  currentUserId,
+  familyMembers,
   onSubmit,
   onCancel,
 }: Props) {
@@ -58,6 +71,9 @@ export default function TaskForm({
   const [priority, setPriority] = useState<Priority>(initial?.priority ?? "MEDIUM");
   const [dueDate, setDueDate] = useState(toDateInputValue(initial?.dueDate ?? null));
   const [repeat, setRepeat] = useState<RepeatType>(initial?.repeat ?? "NONE");
+  const [assigneeId, setAssigneeId] = useState<string>(
+    initial?.assigneeId ?? currentUserId ?? "",
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +84,7 @@ export default function TaskForm({
       priority,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
       repeat,
+      assigneeId: assigneeId || null,
     });
   };
 
@@ -187,6 +204,39 @@ export default function TaskForm({
           <option value="WEEKLY">매주</option>
         </select>
       </label>
+
+      {familyMembers && familyMembers.length > 0 && (
+        <label style={{ display: "block" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+            담당자
+          </div>
+          <select
+            value={assigneeId}
+            onChange={(e) => setAssigneeId(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "11px 14px",
+              border: "1.5px solid #e5e7eb",
+              borderRadius: 10,
+              fontSize: 14,
+              outline: "none",
+              boxSizing: "border-box",
+              backgroundColor: "#fff",
+            }}
+          >
+            {currentUserId && (
+              <option value={currentUserId}>나 자신</option>
+            )}
+            {familyMembers
+              .filter((m) => m.id !== currentUserId)
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         {onCancel && (

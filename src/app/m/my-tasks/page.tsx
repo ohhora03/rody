@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { Plus } from "lucide-react";
 import TaskCard from "./_components/TaskCard";
 import type { MyTask } from "./_components/TaskForm";
@@ -57,6 +58,8 @@ function sortTasks(a: MyTask, b: MyTask) {
 
 export default function MyTasksPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
   const [filter, setFilter] = useState<FilterMode>("ALL");
 
   const { data: tasks = [], isLoading } = useQuery<MyTask[]>({
@@ -176,7 +179,7 @@ export default function MyTasksPage() {
       ) : (
         <div style={{ padding: "0 16px" }}>
           {sorted.map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard key={task.id} task={task} currentUserId={currentUserId} />
           ))}
         </div>
       )}

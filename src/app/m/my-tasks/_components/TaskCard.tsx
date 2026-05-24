@@ -6,6 +6,7 @@ import type { MyTask } from "./TaskForm";
 
 interface Props {
   task: MyTask;
+  currentUserId?: string;
   onTap?: (task: MyTask) => void;
 }
 
@@ -23,7 +24,18 @@ function formatDueDate(date: string | null) {
   return `${mm}/${dd}`;
 }
 
-export default function TaskCard({ task, onTap }: Props) {
+function calcDDay(dueDate: string): { label: string; color: string } {
+  const due = new Date(dueDate);
+  const today = new Date();
+  due.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return { label: "D-Day", color: "#f59e0b" };
+  if (diff > 0) return { label: `D-${diff}`, color: diff <= 3 ? "#ef4444" : "#6b7280" };
+  return { label: `D+${Math.abs(diff)}`, color: "#ef4444" };
+}
+
+export default function TaskCard({ task, currentUserId, onTap }: Props) {
   const queryClient = useQueryClient();
   const isDone = task.status === "DONE";
 
@@ -59,6 +71,17 @@ export default function TaskCard({ task, onTap }: Props) {
 
   const priorityCfg = PRIORITY_CONFIG[task.priority];
   const dueStr = formatDueDate(task.dueDate);
+  const dday = task.dueDate ? calcDDay(task.dueDate) : null;
+
+  // 담당자 관계 표시
+  const isOwner = currentUserId ? task.ownerId === currentUserId : true;
+  const isAssignee = currentUserId ? task.assigneeId === currentUserId : false;
+  let assignmentLabel: string | null = null;
+  if (isOwner && task.assignee && task.assigneeId && task.assigneeId !== task.ownerId) {
+    assignmentLabel = `→ ${task.assignee.name}`;
+  } else if (isAssignee && task.owner && task.ownerId !== currentUserId) {
+    assignmentLabel = `${task.owner.name}이 부여`;
+  }
 
   return (
     <div
@@ -154,6 +177,17 @@ export default function TaskCard({ task, onTap }: Props) {
               {dueStr}
             </span>
           )}
+          {dday && (
+            <span
+              style={{
+                color: dday.color,
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            >
+              {dday.label}
+            </span>
+          )}
           {task.repeat !== "NONE" && (
             <span
               style={{
@@ -168,6 +202,17 @@ export default function TaskCard({ task, onTap }: Props) {
             >
               <Repeat size={12} />
               {task.repeat === "DAILY" ? "매일" : "매주"}
+            </span>
+          )}
+          {assignmentLabel && (
+            <span
+              style={{
+                color: "#6366f1",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              {assignmentLabel}
             </span>
           )}
         </div>

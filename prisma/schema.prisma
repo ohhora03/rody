@@ -22,7 +22,8 @@ model User {
   reviewedTasks     Issue[]        @relation("ReviewedIssues")
   createdTasks      Issue[]        @relation("CreatedIssues")
   comments          Comment[]
-  myTasks           MyTask[]
+  ownedMyTasks      MyTask[] @relation("MyTaskOwner")
+  assignedMyTasks   MyTask[] @relation("MyTaskAssignee")
   pushSubscriptions PushSubscription[]
 }
 
@@ -179,21 +180,24 @@ enum RepeatType {
 }
 
 model MyTask {
-  id        String     @id @default(cuid())
-  title     String
-  memo      String?
-  priority  Priority   @default(MEDIUM)
-  status    TaskStatus @default(PENDING)
-  dueDate   DateTime?
-  repeat    RepeatType @default(NONE)
-  ownerId   String
-  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  title      String
+  memo       String?
+  priority   Priority   @default(MEDIUM)
+  status     TaskStatus @default(PENDING)
+  dueDate    DateTime?
+  repeat     RepeatType @default(NONE)
+  ownerId    String
+  owner      User       @relation("MyTaskOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  assigneeId String?
+  assignee   User?      @relation("MyTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([ownerId])
   @@index([ownerId, status])
   @@index([ownerId, dueDate])
+  @@index([assigneeId])
 }
 
 model PushSubscription {

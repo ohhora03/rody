@@ -2,12 +2,30 @@
 
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { ChevronLeft } from "lucide-react";
-import TaskForm, { type MyTask, type TaskFormValues } from "../_components/TaskForm";
+import TaskForm, {
+  type MyTask,
+  type TaskFormValues,
+  type FamilyMemberOption,
+} from "../_components/TaskForm";
+
+interface HomeCache {
+  families?: Array<{
+    members?: Array<{ user: { id: string; name: string } }>;
+  }>;
+}
 
 export default function NewMyTaskPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
+
+  const home = queryClient.getQueryData<HomeCache>(["m-home"]);
+  const familyMembers: FamilyMemberOption[] = (home?.families?.[0]?.members ?? []).map(
+    (m) => ({ id: m.user.id, name: m.user.name }),
+  );
 
   const createMutation = useMutation({
     mutationFn: async (values: TaskFormValues): Promise<MyTask> => {
@@ -65,6 +83,8 @@ export default function NewMyTaskPage() {
         <TaskForm
           submitLabel="등록"
           submitting={createMutation.isPending}
+          currentUserId={currentUserId}
+          familyMembers={familyMembers}
           onSubmit={(values) => createMutation.mutate(values)}
           onCancel={() => router.back()}
         />

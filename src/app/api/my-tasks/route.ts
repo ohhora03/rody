@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
+import { sendPushToUser } from "@/lib/push";
 import type { Priority, RepeatType } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
@@ -9,7 +10,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const tasks = await prisma.myTask.findMany({
-      where: { ownerId: user.id },
+      where: {
+        OR: [{ ownerId: user.id }, { assigneeId: user.id }],
+      },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        owner: { select: { id: true, name: true } },
+      },
     });
     return Response.json({ data: tasks });
   } catch {
@@ -27,6 +34,7 @@ export async function POST(req: NextRequest) {
     priority?: Priority;
     dueDate?: string | null;
     repeat?: RepeatType;
+    assigneeId?: string | null;
   };
   try {
     body = await req.json();
@@ -46,8 +54,24 @@ export async function POST(req: NextRequest) {
         repeat: body.repeat ?? "NONE",
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         ownerId: user.id,
+        assigneeId: body.assigneeId || undefined,
+      },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        owner: { select: { id: true, name: true } },
       },
     });
+
+    // 다른 사람에게 할당된 경우 푸시 알림 발송 (실패 무시)
+    if (body.assigneeId && body.assigneeId !== user.id) {
+      const ownerName = task.owner?.name ?? "가족";
+      await sendPushToUser(body.assigneeId, {
+        title: "새 할 일이 추가됐어요 ✅",
+        body: `${ownerName}님이 '${title}'을 할당했어요`,
+        url: "/m/my-tasks",
+      });
+    }
+
     return Response.json({ data: task }, { status: 201 });
   } catch {
     return Response.json({ error: "서버 오류" }, { status: 500 });

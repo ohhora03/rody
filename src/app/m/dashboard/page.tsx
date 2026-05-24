@@ -21,6 +21,17 @@ interface MyTask {
   dueDate: string | null; repeat: RepeatType;
 }
 
+function calcDDay(dueDate: string): { label: string; color: string } {
+  const due = new Date(dueDate);
+  const today = new Date();
+  due.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return { label: "D-Day", color: "#f59e0b" };
+  if (diff > 0) return { label: `D-${diff}`, color: diff <= 3 ? "#ef4444" : "#6b7280" };
+  return { label: `D+${Math.abs(diff)}`, color: "#ef4444" };
+}
+
 interface User { id: string; name: string; email: string; color: string }
 interface Issue {
   id: string; title: string; status: IssueStatus; priority: Priority;
@@ -243,12 +254,24 @@ export default function DashboardPage() {
                       <span style={{ fontSize: 12, flexShrink: 0 }}>🔄</span>
                     )}
                     {task.dueDate && (
-                      <span style={{
-                        fontSize: 11, fontWeight: 600, flexShrink: 0,
-                        color: isOverdue ? "#ef4444" : isToday ? "#f59e0b" : "#9ca3af",
-                      }}>
-                        {isToday ? "오늘" : isOverdue ? "기한 초과" : new Date(task.dueDate).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
-                      </span>
+                      <>
+                        <span style={{
+                          fontSize: 11, fontWeight: 600, flexShrink: 0,
+                          color: isOverdue ? "#ef4444" : isToday ? "#f59e0b" : "#9ca3af",
+                        }}>
+                          {isToday ? "오늘" : isOverdue ? "기한 초과" : new Date(task.dueDate).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                        </span>
+                        {(() => {
+                          const dd = calcDDay(task.dueDate);
+                          return (
+                            <span style={{
+                              fontSize: 11, fontWeight: 700, flexShrink: 0, color: dd.color,
+                            }}>
+                              {dd.label}
+                            </span>
+                          );
+                        })()}
+                      </>
                     )}
                   </Link>
                 );

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
+import { sendPushToUser } from "@/lib/push";
 import type { Priority, RepeatType, TaskStatus } from "@prisma/client";
 
 function calcNextDue(current: Date | null, repeat: RepeatType): Date {
@@ -27,6 +28,7 @@ export async function PATCH(
     dueDate?: string | null;
     repeat?: RepeatType;
     status?: TaskStatus;
+    assigneeId?: string | null;
   };
   try {
     body = await req.json();
@@ -35,9 +37,25 @@ export async function PATCH(
   }
 
   try {
-    const task = await prisma.myTask.findUnique({ where: { id } });
-    if (!task || task.ownerId !== user.id) {
+    const task = await prisma.myTask.findUnique({
+      where: { id },
+      include: { owner: { select: { id: true, name: true } } },
+    });
+    if (!task) {
       return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    const isOwner = task.ownerId === user.id;
+    const isAssignee = task.assigneeId === user.id;
+    if (!isOwner && !isAssignee) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // assignee만 가능한 변경은 status뿐. owner는 모두 가능.
+    // assigneeId 변경은 owner만 가능.
+    const assigneeChanging =
+      body.assigneeId !== undefined && body.assigneeId !== task.assigneeId;
+    if (assigneeChanging && !isOwner) {
+      return Response.json({ error: "권한이 없습니다" }, { status: 403 });
     }
 
     const willCompleteRepeat =
@@ -48,14 +66,21 @@ export async function PATCH(
     const updated = await prisma.myTask.update({
       where: { id },
       data: {
-        ...(body.title !== undefined && { title: body.title }),
-        ...(body.memo !== undefined && { memo: body.memo }),
-        ...(body.priority !== undefined && { priority: body.priority }),
-        ...(body.repeat !== undefined && { repeat: body.repeat }),
+        ...(isOwner && body.title !== undefined && { title: body.title }),
+        ...(isOwner && body.memo !== undefined && { memo: body.memo }),
+        ...(isOwner && body.priority !== undefined && { priority: body.priority }),
+        ...(isOwner && body.repeat !== undefined && { repeat: body.repeat }),
         ...(body.status !== undefined && { status: body.status }),
-        ...(body.dueDate !== undefined && {
+        ...(isOwner && body.dueDate !== undefined && {
           dueDate: body.dueDate ? new Date(body.dueDate) : null,
         }),
+        ...(isOwner && body.assigneeId !== undefined && {
+          assigneeId: body.assigneeId || null,
+        }),
+      },
+      include: {
+        assignee: { select: { id: true, name: true } },
+        owner: { select: { id: true, name: true } },
       },
     });
 
@@ -68,8 +93,23 @@ export async function PATCH(
           priority: task.priority,
           repeat: task.repeat,
           dueDate: nextDue,
-          ownerId: user.id,
+          ownerId: task.ownerId,
+          assigneeId: task.assigneeId,
         },
+      });
+    }
+
+    // assigneeId 변경 시 새 assignee에게 푸시 (본인이 아닐 때만)
+    if (
+      assigneeChanging &&
+      body.assigneeId &&
+      body.assigneeId !== user.id
+    ) {
+      const ownerName = task.owner?.name ?? "가족";
+      await sendPushToUser(body.assigneeId, {
+        title: "새 할 일이 추가됐어요 ✅",
+        body: `${ownerName}님이 '${task.title}'을 할당했어요`,
+        url: "/m/my-tasks",
       });
     }
 
