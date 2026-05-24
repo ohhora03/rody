@@ -73,7 +73,7 @@ export default function SprintPage() {
     queryKey: ["m-home"],
     queryFn: mApi.home,
     enabled: !!session?.user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
 
   const family = homeData?.families?.[0] ?? null;
@@ -92,6 +92,7 @@ export default function SprintPage() {
     queryKey: ["m-sprint-detail", projectId, expandedSprintId],
     queryFn: () => mApi.sprintDetail(projectId!, expandedSprintId!),
     enabled: !!projectId && !!expandedSprintId,
+    staleTime: 30_000,
   });
 
   const startMutation = useMutation({

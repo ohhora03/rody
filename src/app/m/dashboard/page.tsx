@@ -143,7 +143,7 @@ export default function DashboardPage() {
     queryKey: ["m-home"],
     queryFn: mApi.home,
     enabled: !!session?.user,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
 
   const { data: myTasks = [] } = useQuery<MyTask[]>({
