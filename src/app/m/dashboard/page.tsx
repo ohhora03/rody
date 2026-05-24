@@ -13,6 +13,13 @@ import IssueModal from "../_components/IssueModal";
 
 type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD";
 type Priority = "HIGH" | "MEDIUM" | "LOW";
+type TaskStatus = "PENDING" | "DONE";
+type RepeatType = "NONE" | "DAILY" | "WEEKLY";
+
+interface MyTask {
+  id: string; title: string; priority: Priority; status: TaskStatus;
+  dueDate: string | null; repeat: RepeatType;
+}
 
 interface User { id: string; name: string; email: string; color: string }
 interface Issue {
@@ -124,6 +131,23 @@ export default function DashboardPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: myTasks = [] } = useQuery<MyTask[]>({
+    queryKey: ["my-tasks"],
+    queryFn: () => fetch("/api/my-tasks").then(r => r.json()).then(r => r.data ?? []),
+    enabled: !!session?.user,
+    staleTime: 60_000,
+  });
+
+  const pendingTasks = myTasks
+    .filter(t => t.status === "PENDING")
+    .sort((a, b) => {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    })
+    .slice(0, 5);
+
   const family = data?.families?.[0] ?? null;
   const project = data?.project ?? null;
   const activeSprint = data?.activeSprint ?? null;
@@ -164,6 +188,75 @@ export default function DashboardPage() {
           {family?.name ?? "가족 그룹"}
         </div>
       </div>
+
+      {/* 내 할 일 섹션 */}
+      {pendingTasks.length > 0 && (
+        <div style={{ padding: "0 16px 16px" }}>
+          <div style={{
+            backgroundColor: "#fff", borderRadius: 16,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden",
+          }}>
+            {/* 헤더 */}
+            <div style={{
+              padding: "14px 16px 10px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>✅</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>내 할 일</span>
+                <span style={{
+                  backgroundColor: "#6366f1", color: "#fff",
+                  fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 20,
+                }}>{pendingTasks.length}</span>
+              </div>
+              <Link href="/m/my-tasks" style={{
+                fontSize: 12, color: "#6366f1", fontWeight: 600, textDecoration: "none",
+              }}>전체 보기 →</Link>
+            </div>
+
+            {/* 할 일 목록 */}
+            <div style={{ padding: "0 12px 12px" }}>
+              {pendingTasks.map((task) => {
+                const today = new Date().toDateString();
+                const isToday = task.dueDate && new Date(task.dueDate).toDateString() === today;
+                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isToday;
+                const priorityColor: Record<Priority, string> = { HIGH: "#ef4444", MEDIUM: "#f59e0b", LOW: "#10b981" };
+                return (
+                  <Link
+                    key={task.id}
+                    href="/m/my-tasks"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "9px 4px", borderBottom: "1px solid #f8fafc",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                      backgroundColor: priorityColor[task.priority],
+                    }} />
+                    <span style={{
+                      flex: 1, fontSize: 14, color: "#111827", fontWeight: 500,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>{task.title}</span>
+                    {task.repeat !== "NONE" && (
+                      <span style={{ fontSize: 12, flexShrink: 0 }}>🔄</span>
+                    )}
+                    {task.dueDate && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, flexShrink: 0,
+                        color: isOverdue ? "#ef4444" : isToday ? "#f59e0b" : "#9ca3af",
+                      }}>
+                        {isToday ? "오늘" : isOverdue ? "기한 초과" : new Date(task.dueDate).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active Sprint Card */}
       {activeSprint ? (
