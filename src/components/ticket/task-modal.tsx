@@ -170,10 +170,10 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">활동 내역</label>
                   <div className="space-y-3 mb-4 max-h-64 overflow-y-auto pr-1">
-                    {task!.comments.length === 0 && (
+                    {(task?.comments ?? []).length === 0 && (
                       <p className="text-sm text-gray-400 text-center py-4">아직 활동이 없습니다</p>
                     )}
-                    {task!.comments.map((entry) => {
+                    {(task?.comments ?? []).map((entry) => {
                       if (entry.type === "STATUS_CHANGE") {
                         const from = STATUS_CONFIG[entry.fromStatus as keyof typeof STATUS_CONFIG];
                         const to = STATUS_CONFIG[entry.toStatus as keyof typeof STATUS_CONFIG];
