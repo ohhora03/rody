@@ -16,9 +16,13 @@ type Priority = "HIGH" | "MEDIUM" | "LOW";
 type TaskStatus = "PENDING" | "DONE";
 type RepeatType = "NONE" | "DAILY" | "WEEKLY";
 
+type AcceptStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 interface MyTask {
   id: string; title: string; priority: Priority; status: TaskStatus;
   dueDate: string | null; repeat: RepeatType;
+  acceptStatus: AcceptStatus;
+  owner?: { id: string; name: string } | null;
+  assignee?: { id: string; name: string } | null;
 }
 
 function calcDDay(dueDate: string): { label: string; color: string } {
@@ -150,7 +154,7 @@ export default function DashboardPage() {
   });
 
   const pendingTasks = myTasks
-    .filter(t => t.status === "PENDING")
+    .filter(t => t.status === "PENDING" && t.acceptStatus === "ACCEPTED")
     .sort((a, b) => {
       if (!a.dueDate && !b.dueDate) return 0;
       if (!a.dueDate) return 1;

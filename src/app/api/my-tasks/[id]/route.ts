@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/get-session";
 import { prisma } from "@/lib/prisma";
 import { sendPushToUser } from "@/lib/push";
-import type { Priority, RepeatType, TaskStatus } from "@prisma/client";
+import type { Priority, RepeatType, TaskStatus, AcceptStatus } from "@prisma/client";
 
 function calcNextDue(current: Date | null, repeat: RepeatType): Date {
   const base = current ? new Date(current) : new Date();
@@ -29,6 +29,7 @@ export async function PATCH(
     repeat?: RepeatType;
     status?: TaskStatus;
     assigneeId?: string | null;
+    acceptStatus?: AcceptStatus;
   };
   try {
     body = await req.json();
@@ -48,6 +49,28 @@ export async function PATCH(
     const isAssignee = task.assigneeId === user.id;
     if (!isOwner && !isAssignee) {
       return Response.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // 수락/거절 처리 - assignee만 가능
+    if (body.acceptStatus !== undefined) {
+      if (!isAssignee) {
+        return Response.json({ error: "권한이 없습니다" }, { status: 403 });
+      }
+      if (body.acceptStatus === "REJECTED") {
+        await prisma.myTask.delete({ where: { id } });
+        return Response.json({ data: null }, { status: 200 });
+      }
+      if (body.acceptStatus === "ACCEPTED") {
+        const updated = await prisma.myTask.update({
+          where: { id },
+          data: { acceptStatus: "ACCEPTED" },
+          include: {
+            assignee: { select: { id: true, name: true } },
+            owner: { select: { id: true, name: true } },
+          },
+        });
+        return Response.json({ data: updated });
+      }
     }
 
     // assignee만 가능한 변경은 status뿐. owner는 모두 가능.
@@ -76,6 +99,10 @@ export async function PATCH(
         }),
         ...(isOwner && body.assigneeId !== undefined && {
           assigneeId: body.assigneeId || null,
+          acceptStatus:
+            body.assigneeId && body.assigneeId !== user.id
+              ? "PENDING"
+              : "ACCEPTED",
         }),
       },
       include: {

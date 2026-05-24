@@ -5,6 +5,7 @@ import { useState } from "react";
 export type Priority = "HIGH" | "MEDIUM" | "LOW";
 export type TaskStatus = "PENDING" | "DONE";
 export type RepeatType = "NONE" | "DAILY" | "WEEKLY";
+export type AcceptStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 
 export interface MyTask {
   id: string;
@@ -12,6 +13,7 @@ export interface MyTask {
   memo: string | null;
   priority: Priority;
   status: TaskStatus;
+  acceptStatus: AcceptStatus;
   dueDate: string | null;
   repeat: RepeatType;
   ownerId: string;

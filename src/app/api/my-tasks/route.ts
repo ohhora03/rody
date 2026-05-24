@@ -11,7 +11,13 @@ export async function GET(req: NextRequest) {
   try {
     const tasks = await prisma.myTask.findMany({
       where: {
-        OR: [{ ownerId: user.id }, { assigneeId: user.id }],
+        OR: [
+          // 본인이 만든 할일 중 assignee가 없거나 본인인 것
+          { ownerId: user.id, assigneeId: null },
+          { ownerId: user.id, assigneeId: user.id },
+          // 다른 사람이 나에게 부여한 할일 (수락 대기 + 수락됨)
+          { assigneeId: user.id, acceptStatus: { in: ["PENDING", "ACCEPTED"] } },
+        ],
       },
       include: {
         assignee: { select: { id: true, name: true } },
@@ -46,6 +52,9 @@ export async function POST(req: NextRequest) {
   if (!title) return Response.json({ error: "title은 필수입니다" }, { status: 400 });
 
   try {
+    const acceptStatus =
+      body.assigneeId && body.assigneeId !== user.id ? "PENDING" : "ACCEPTED";
+
     const task = await prisma.myTask.create({
       data: {
         title,
@@ -55,6 +64,7 @@ export async function POST(req: NextRequest) {
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         ownerId: user.id,
         assigneeId: body.assigneeId || undefined,
+        acceptStatus,
       },
       include: {
         assignee: { select: { id: true, name: true } },

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Plus } from "lucide-react";
 import TaskCard from "./_components/TaskCard";
@@ -58,6 +58,7 @@ function sortTasks(a: MyTask, b: MyTask) {
 
 export default function MyTasksPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
   const [filter, setFilter] = useState<FilterMode>("ALL");
@@ -73,8 +74,25 @@ export default function MyTasksPage() {
     staleTime: 60_000,
   });
 
+  const acceptMutation = useMutation({
+    mutationFn: ({ id, accept }: { id: string; accept: boolean }) =>
+      fetch(`/api/my-tasks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acceptStatus: accept ? "ACCEPTED" : "REJECTED" }),
+      }).then((r) => r.json()),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-tasks"] }),
+  });
+
+  // 수락 대기 항목 (다른 사람이 나에게 부여)
+  const pendingAcceptTasks = tasks.filter(
+    (t) => t.acceptStatus === "PENDING" && t.assigneeId === currentUserId,
+  );
+  // 정식 목록 (수락된 것만)
+  const acceptedTasks = tasks.filter((t) => t.acceptStatus === "ACCEPTED");
+
   const today = new Date();
-  const filtered = tasks.filter((t) => {
+  const filtered = acceptedTasks.filter((t) => {
     if (filter === "TODAY") return isSameLocalDate(t.dueDate, today);
     if (filter === "DONE") return t.status === "DONE";
     return true;
@@ -111,10 +129,76 @@ export default function MyTasksPage() {
               borderRadius: 20,
             }}
           >
-            {tasks.length}
+            {acceptedTasks.length}
           </span>
         </div>
       </div>
+
+      {/* 수락 대기 섹션 */}
+      {pendingAcceptTasks.length > 0 && (
+        <div style={{ padding: "0 16px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#ea580c", padding: "0 4px" }}>
+            수락 대기 ({pendingAcceptTasks.length})
+          </div>
+          {pendingAcceptTasks.map((task) => (
+            <div
+              key={task.id}
+              style={{
+                backgroundColor: "#fff7ed",
+                borderRadius: 12,
+                padding: "14px 16px",
+                border: "1.5px solid #fed7aa",
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#ea580c", fontWeight: 600, marginBottom: 6 }}>
+                {task.owner?.name ?? "가족"}님이 할일을 부여했어요
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 12 }}>
+                {task.title}
+              </div>
+              {task.memo && (
+                <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12 }}>{task.memo}</div>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => acceptMutation.mutate({ id: task.id, accept: true })}
+                  disabled={acceptMutation.isPending}
+                  style={{
+                    flex: 1,
+                    padding: "9px",
+                    backgroundColor: "#6366f1",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  ✅ 수락
+                </button>
+                <button
+                  onClick={() => acceptMutation.mutate({ id: task.id, accept: false })}
+                  disabled={acceptMutation.isPending}
+                  style={{
+                    flex: 1,
+                    padding: "9px",
+                    backgroundColor: "#fff",
+                    color: "#ef4444",
+                    border: "1.5px solid #ef4444",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  ❌ 거절
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filter chips */}
       <div
