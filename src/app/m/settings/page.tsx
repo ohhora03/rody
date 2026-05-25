@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, Copy, Check, X, LogOut, Pencil } from "lucide-react";
@@ -287,8 +287,8 @@ export default function SettingsPage() {
   const [inviteCode, setInviteCode] = useState("");
   const [nickname, setNickname] = useState("");
   const [editingFamilyName, setEditingFamilyName] = useState(false);
-  const [familyNameDraft, setFamilyNameDraft] = useState("");
   const [familyNameError, setFamilyNameError] = useState<string | null>(null);
+  const familyNameRef = useRef<HTMLInputElement>(null);
 
   const { data: families, isLoading } = useQuery<Family[]>({
     queryKey: ["m-families"],
@@ -301,7 +301,7 @@ export default function SettingsPage() {
   const isMaster = currentMember?.role === "MASTER";
 
   const updateFamilyMutation = useMutation({
-    mutationFn: () => mApi.updateFamily(family!.id, { name: familyNameDraft.trim() }),
+    mutationFn: () => mApi.updateFamily(family!.id, { name: (familyNameRef.current?.value ?? "").trim() }),
     onSuccess: (res) => {
       if (res?.error) {
         setFamilyNameError(res.error);
@@ -378,9 +378,9 @@ export default function SettingsPage() {
                 {editingFamilyName ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <input
+                      ref={familyNameRef}
                       autoFocus
-                      value={familyNameDraft}
-                      onChange={(e) => setFamilyNameDraft(e.target.value)}
+                      defaultValue={family?.name ?? ""}
                       maxLength={30}
                       placeholder="가족 이름"
                       style={{
@@ -392,7 +392,7 @@ export default function SettingsPage() {
                     />
                     <button
                       onClick={() => {
-                        if (!familyNameDraft.trim()) {
+                        if (!(familyNameRef.current?.value ?? "").trim()) {
                           setFamilyNameError("이름을 입력해주세요");
                           return;
                         }
@@ -428,7 +428,6 @@ export default function SettingsPage() {
                     {isMaster && (
                       <button
                         onClick={() => {
-                          setFamilyNameDraft(family.name);
                           setFamilyNameError(null);
                           setEditingFamilyName(true);
                         }}

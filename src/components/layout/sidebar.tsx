@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -22,12 +22,12 @@ export default function Sidebar({ projectId, familyId, familyName, isMaster, act
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [editingFamily, setEditingFamily] = useState(false);
-  const [familyNameInput, setFamilyNameInput] = useState(familyName ?? "");
   const [savingFamilyName, setSavingFamilyName] = useState(false);
   const [displayFamilyName, setDisplayFamilyName] = useState(familyName ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   async function saveFamilyName() {
-    const trimmed = familyNameInput.trim();
+    const trimmed = (inputRef.current?.value ?? "").trim();
     if (!trimmed) { toast.error("가족 이름을 입력해주세요"); return; }
     if (trimmed.length > 30) { toast.error("30자 이내로 입력해주세요"); return; }
     if (trimmed === displayFamilyName) { setEditingFamily(false); return; }
@@ -88,11 +88,11 @@ export default function Sidebar({ projectId, familyId, familyName, isMaster, act
           {editingFamily ? (
             <div className="flex items-center gap-1.5">
               <input
-                value={familyNameInput}
-                onChange={(e) => setFamilyNameInput(e.target.value)}
+                ref={inputRef}
+                defaultValue={displayFamilyName}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") saveFamilyName();
-                  if (e.key === "Escape") { setEditingFamily(false); setFamilyNameInput(displayFamilyName); }
+                  if (e.key === "Enter") { e.preventDefault(); saveFamilyName(); }
+                  if (e.key === "Escape") { setEditingFamily(false); }
                 }}
                 maxLength={30}
                 autoFocus
@@ -114,7 +114,7 @@ export default function Sidebar({ projectId, familyId, familyName, isMaster, act
               <p className="text-xs font-semibold text-gray-800 truncate flex-1">{displayFamilyName || "이름 없음"}</p>
               {isMaster && (
                 <button
-                  onClick={() => { setEditingFamily(true); setFamilyNameInput(displayFamilyName); }}
+                  onClick={() => { setEditingFamily(true); }}
                   className="p-0.5 text-gray-400 hover:text-indigo-500 flex-shrink-0"
                   title="가족 이름 변경"
                 >
