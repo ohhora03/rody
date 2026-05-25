@@ -5,19 +5,48 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LayoutDashboard, Zap, List, Settings, LogOut, Play, Menu, X, Smartphone } from "lucide-react";
+import { LayoutDashboard, Zap, List, Settings, LogOut, Play, Menu, X, Smartphone, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Props = {
   projectId: string;
   familyId: string;
+  familyName?: string;
+  isMaster?: boolean;
   activeSprint?: { id: string; name: string } | null;
   user: { name?: string | null; email?: string | null; color?: string };
 };
 
-export default function Sidebar({ projectId, familyId, activeSprint, user }: Props) {
+export default function Sidebar({ projectId, familyId, familyName, isMaster, activeSprint, user }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [editingFamily, setEditingFamily] = useState(false);
+  const [familyNameInput, setFamilyNameInput] = useState(familyName ?? "");
+  const [savingFamilyName, setSavingFamilyName] = useState(false);
+  const [displayFamilyName, setDisplayFamilyName] = useState(familyName ?? "");
+
+  async function saveFamilyName() {
+    const trimmed = familyNameInput.trim();
+    if (!trimmed) { toast.error("가족 이름을 입력해주세요"); return; }
+    if (trimmed.length > 30) { toast.error("30자 이내로 입력해주세요"); return; }
+    if (trimmed === displayFamilyName) { setEditingFamily(false); return; }
+    setSavingFamilyName(true);
+    try {
+      const res = await fetch(`/api/families/${familyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const j = await res.json();
+      if (!res.ok) { toast.error(j.error || "이름 변경 실패"); return; }
+      setDisplayFamilyName(trimmed);
+      setEditingFamily(false);
+      toast.success("가족 이름을 변경했어요");
+    } finally {
+      setSavingFamilyName(false);
+    }
+  }
 
   const nav = [
     { href: `/projects/${projectId}/dashboard`, label: "대시보드", Icon: LayoutDashboard },
@@ -52,6 +81,50 @@ export default function Sidebar({ projectId, familyId, activeSprint, user }: Pro
           <X className="w-5 h-5" />
         </button>
       </div>
+
+      {/* 가족 이름 */}
+      {displayFamilyName !== undefined && (
+        <div className="mx-3 mt-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+          {editingFamily ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={familyNameInput}
+                onChange={(e) => setFamilyNameInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveFamilyName();
+                  if (e.key === "Escape") { setEditingFamily(false); setFamilyNameInput(displayFamilyName); }
+                }}
+                maxLength={30}
+                autoFocus
+                disabled={savingFamilyName}
+                className="flex-1 min-w-0 px-2 py-1 text-xs rounded-md border border-indigo-200 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              />
+              <button
+                onClick={saveFamilyName}
+                disabled={savingFamilyName}
+                className="p-1 text-indigo-600 hover:bg-indigo-50 rounded-md flex-shrink-0"
+                title="저장"
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs text-gray-500 flex-shrink-0">가족</p>
+              <p className="text-xs font-semibold text-gray-800 truncate flex-1">{displayFamilyName || "이름 없음"}</p>
+              {isMaster && (
+                <button
+                  onClick={() => { setEditingFamily(true); setFamilyNameInput(displayFamilyName); }}
+                  className="p-0.5 text-gray-400 hover:text-indigo-500 flex-shrink-0"
+                  title="가족 이름 변경"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 모바일 앱으로 이동 배너 */}
       <Link

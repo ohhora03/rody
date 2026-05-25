@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { BarChart2, Filter, Layers, Plus } from "lucide-react";
 import { PRIORITY_CONFIG, STATUS_CONFIG, KANBAN_COLUMNS, getDDayLabel, cn } from "@/lib/utils";
-import type { IssueWithRelations, SprintWithIssues, IssueStatus, Member } from "@/types";
+import type { IssueWithRelations, SprintWithIssues, IssueStatus, Member, Sprint } from "@/types";
 import { BurndownChart } from "@/components/charts/burndown-chart";
 import { TaskModal } from "@/components/ticket/task-modal";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ export default function SprintPage() {
   const { data: session } = useSession();
   const [sprint, setSprint] = useState<SprintWithIssues | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [allSprints, setAllSprints] = useState<Sprint[]>([]);
   const [filter, setFilter] = useState<"all" | "mine" | "high">("all");
   const [swimlane, setSwimlane] = useState(false);
   const [showChart, setShowChart] = useState(false);
@@ -23,13 +24,15 @@ export default function SprintPage() {
   const [showCreateFor, setShowCreateFor] = useState<IssueStatus | null>(null);
 
   const load = useCallback(async () => {
-    const [spRes, mbRes] = await Promise.all([
+    const [spRes, mbRes, listRes] = await Promise.all([
       fetch(`/api/projects/${projectId}/sprints/${sprintId}`),
       fetch(`/api/projects/${projectId}/members`),
+      fetch(`/api/projects/${projectId}/sprints`),
     ]);
-    const [spJson, mbJson] = await Promise.all([spRes.json(), mbRes.json()]);
+    const [spJson, mbJson, listJson] = await Promise.all([spRes.json(), mbRes.json(), listRes.json()]);
     if (spJson.data) setSprint(spJson.data);
     setMembers(mbJson.data ?? []);
+    setAllSprints(listJson.data ?? []);
   }, [projectId, sprintId]);
 
   useEffect(() => { load(); }, [load]);
@@ -241,7 +244,9 @@ export default function SprintPage() {
         <TaskModal
           task={selectedTask}
           projectId={projectId}
+          sprintId={sprintId}
           members={members}
+          allSprints={allSprints}
           onClose={() => setSelectedTask(null)}
           onSave={() => { setSelectedTask(null); load(); }}
         />
@@ -252,6 +257,7 @@ export default function SprintPage() {
           projectId={projectId}
           sprintId={sprintId}
           members={members}
+          allSprints={allSprints}
           onClose={() => setShowCreateFor(null)}
           onSave={() => { setShowCreateFor(null); load(); }}
         />

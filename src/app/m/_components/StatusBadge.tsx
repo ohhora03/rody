@@ -1,4 +1,4 @@
-type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD";
+type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD" | "FAILED";
 
 interface StatusBadgeProps {
   status: IssueStatus;
@@ -11,6 +11,7 @@ const STATUS_CONFIG: Record<IssueStatus, { label: string; bg: string; color: str
   CLOSED: { label: "종료", bg: "#f0fdf4", color: "#16a34a" },
   REJECTED: { label: "반려", bg: "#fef2f2", color: "#dc2626" },
   HOLD: { label: "보류", bg: "#f9fafb", color: "#6b7280" },
+  FAILED: { label: "실패", bg: "#fef2f2", color: "#dc2626" },
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {

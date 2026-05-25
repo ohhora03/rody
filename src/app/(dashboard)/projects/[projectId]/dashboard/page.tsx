@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Target, CheckCircle2, Clock, Award, Users, TrendingUp, AlertCircle, PauseCircle } from "lucide-react";
+import { Target, CheckCircle2, Clock, Award, Users, TrendingUp, AlertCircle, PauseCircle, Filter } from "lucide-react";
 import { BurndownChart } from "@/components/charts/burndown-chart";
 import { PRIORITY_CONFIG, STATUS_CONFIG } from "@/lib/utils";
 import type { IssueWithRelations, SprintWithIssues, Sprint } from "@/types";
 
 export default function DashboardPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [issues, setIssues] = useState<IssueWithRelations[]>([]);
+  const [allIssues, setAllIssues] = useState<IssueWithRelations[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [activeSprint, setActiveSprint] = useState<SprintWithIssues | null>(null);
+  // 필터: "active" | "all" | sprintId
+  const [scope, setScope] = useState<string>("active");
 
   useEffect(() => {
     async function load() {
@@ -20,10 +22,10 @@ export default function DashboardPage() {
         fetch(`/api/projects/${projectId}/sprints`),
       ]);
       const [issJson, spJson] = await Promise.all([issRes.json(), spRes.json()]);
-      setIssues(issJson.data ?? []);
-      const allSprints: Sprint[] = spJson.data ?? [];
-      setSprints(allSprints);
-      const active = allSprints.find((s) => s.status === "ACTIVE");
+      setAllIssues(issJson.data ?? []);
+      const sprintList: Sprint[] = spJson.data ?? [];
+      setSprints(sprintList);
+      const active = sprintList.find((s) => s.status === "ACTIVE");
       if (active) {
         const r = await fetch(`/api/projects/${projectId}/sprints/${active.id}`);
         const j = await r.json();
@@ -32,6 +34,17 @@ export default function DashboardPage() {
     }
     load();
   }, [projectId]);
+
+  // scope에 따라 이슈 필터링
+  const issues = (() => {
+    if (scope === "all") return allIssues;
+    if (scope === "active") {
+      if (!activeSprint) return [];
+      return allIssues.filter((i) => i.sprintId === activeSprint.id);
+    }
+    // 특정 sprint id
+    return allIssues.filter((i) => i.sprintId === scope);
+  })();
 
   const totalTasks = issues.length;
   const closedTasks = issues.filter((i) => i.status === "CLOSED").length;
@@ -84,7 +97,33 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-gray-900">대시보드</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-gray-900">대시보드</h1>
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-gray-400" />
+          <select
+            value={scope}
+            onChange={(e) => setScope(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 text-gray-700"
+          >
+            <option value="active">활성 스프린트{activeSprint ? ` (${activeSprint.name})` : ""}</option>
+            <option value="all">전체 누적</option>
+            {sprints.length > 0 && <option disabled>──────────</option>}
+            {sprints.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.status === "ACTIVE" ? "진행 중" : s.status === "COMPLETED" ? "완료" : "계획"})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {scope === "active" && !activeSprint && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 rounded-xl p-3 text-sm flex items-center justify-between">
+          <span>활성 스프린트가 없습니다.</span>
+          <button onClick={() => setScope("all")} className="text-xs font-semibold underline">전체 보기로 전환</button>
+        </div>
+      )}
 
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

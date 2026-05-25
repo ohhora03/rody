@@ -124,6 +124,7 @@ model Issue {
   @@index([sprintId])
   @@index([assigneeId])
   @@index([projectId, sprintId])
+  @@index([sprintId, status])
 }
 
 model Comment {
@@ -160,6 +161,7 @@ enum IssueStatus {
   CLOSED
   REJECTED
   HOLD
+  FAILED
 }
 
 enum Priority {

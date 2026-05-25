@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Trash2, Send, ChevronDown, Calendar, User, GitBranch, ArrowRight } from "lucide-react";
+import { X, Trash2, Send, ChevronDown, Calendar, User, GitBranch, ArrowRight, Move } from "lucide-react";
 import { PRIORITY_CONFIG, STATUS_CONFIG, formatDateTime, cn } from "@/lib/utils";
-import type { IssueWithRelations, IssueStatus, Priority, Member } from "@/types";
+import type { IssueWithRelations, IssueStatus, Priority, Member, Sprint } from "@/types";
 import { toast } from "sonner";
 
 type Props = {
@@ -11,13 +11,14 @@ type Props = {
   projectId: string;
   sprintId?: string | null;
   members: Member[];
+  allSprints?: Sprint[];
   onClose: () => void;
   onSave: () => void;
 };
 
 const ALL_STATUSES = Object.entries(STATUS_CONFIG) as [keyof typeof STATUS_CONFIG, (typeof STATUS_CONFIG)[keyof typeof STATUS_CONFIG]][];
 
-export function TaskModal({ task, projectId, sprintId, members, onClose, onSave }: Props) {
+export function TaskModal({ task, projectId, sprintId, members, allSprints, onClose, onSave }: Props) {
   const isEdit = !!task;
   const [title, setTitle] = useState(task?.title ?? "");
   const [desc, setDesc] = useState(task?.description ?? "");
@@ -32,6 +33,10 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferMode, setTransferMode] = useState<"transfer" | "copy">("transfer");
+  const [transferTargetSprintId, setTransferTargetSprintId] = useState("");
+  const [transferring, setTransferring] = useState(false);
   const activityEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -85,6 +90,26 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
     else toast.error("변경 실패");
   }
 
+  async function handleTransfer() {
+    if (!isEdit || !task || !sprintId) return;
+    if (!transferTargetSprintId) { toast.error("대상 스프린트를 선택해주세요"); return; }
+    setTransferring(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/sprints/${sprintId}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issueId: task.id, mode: transferMode, targetSprintId: transferTargetSprintId }),
+      });
+      const j = await res.json();
+      if (!res.ok) { toast.error(j.error || "처리 실패"); return; }
+      toast.success(transferMode === "transfer" ? "이관했어요" : "복사했어요");
+      setShowTransferModal(false);
+      onSave();
+    } finally {
+      setTransferring(false);
+    }
+  }
+
   async function addComment(e: React.FormEvent) {
     e.preventDefault();
     if (!comment.trim() || !isEdit) return;
@@ -118,6 +143,15 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
             />
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
+            {isEdit && sprintId && allSprints && allSprints.length > 0 && (
+              <button
+                onClick={() => { setShowTransferModal(true); setTransferTargetSprintId(""); setTransferMode("transfer"); }}
+                className="p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-colors"
+                title="이관/복사"
+              >
+                <Move className="w-4 h-4" />
+              </button>
+            )}
             {isEdit && (
               <button onClick={handleDelete} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
                 <Trash2 className="w-4 h-4" />
@@ -346,6 +380,79 @@ export function TaskModal({ task, projectId, sprintId, members, onClose, onSave 
           </button>
         </div>
       </div>
+
+      {/* 이관/복사 모달 */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={(e) => e.target === e.currentTarget && setShowTransferModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900">과제 이관/복사</h3>
+              <p className="text-xs text-gray-500 mt-1">이 과제를 다른 스프린트로 어떻게 처리할까요?</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="transferMode"
+                  checked={transferMode === "transfer"}
+                  onChange={() => setTransferMode("transfer")}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">이관 — 기존 과제 이동</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">현재 과제를 대상 스프린트로 옮기고 상태를 READY로 초기화합니다</p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="transferMode"
+                  checked={transferMode === "copy"}
+                  onChange={() => setTransferMode("copy")}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">복사 — 새 과제로 추가</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">새로운 과제로 복사되어 포인트가 새로 적립됩니다</p>
+                </div>
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">대상 스프린트</label>
+              <select
+                value={transferTargetSprintId}
+                onChange={(e) => setTransferTargetSprintId(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="">스프린트 선택</option>
+                {(allSprints ?? []).filter((s) => s.id !== sprintId && s.status !== "COMPLETED").map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.status === "ACTIVE" ? "진행 중" : "계획"})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600"
+                disabled={transferring}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={transferring || !transferTargetSprintId}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium disabled:opacity-50"
+              >
+                {transferring ? "처리 중..." : transferMode === "transfer" ? "이관" : "복사"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

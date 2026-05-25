@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, PenLine, X, MoveRight } from "lucide-react";
+import { ChevronDown, ChevronUp, PenLine, X, MoveRight, Trash2 } from "lucide-react";
 import { mApi } from "../_lib/api";
 import StatusBadge from "../_components/StatusBadge";
 import PriorityDot from "../_components/PriorityDot";
@@ -12,7 +12,7 @@ import IssueModal from "../_components/IssueModal";
 import CreateIssueFAB from "../_components/CreateIssueFAB";
 
 type SprintStatus = "PLANNING" | "ACTIVE" | "COMPLETED";
-type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD";
+type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD" | "FAILED";
 type Priority = "HIGH" | "MEDIUM" | "LOW";
 
 interface User { id: string; name: string; color: string }
@@ -64,6 +64,17 @@ export default function SprintPage() {
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   // 스프린트 이동
   const [movingIssue, setMovingIssue] = useState<{ id: string; title: string; currentSprintId: string } | null>(null);
+  // 이관/복사 모드 선택 (대상 스프린트 선택 후 표시)
+  const [transferTarget, setTransferTarget] = useState<{ sprintId: string; sprintName: string } | null>(null);
+  // 스프린트 완료 시 FAILED 처리 모달
+  const [completingSprint, setCompletingSprint] = useState<{
+    id: string;
+    name: string;
+    failedIssues: Array<{ id: string; title: string; status: string; points: number | null }>;
+  } | null>(null);
+  // 스프린트 삭제 확인
+  const [deletingSprintId, setDeletingSprintId] = useState<string | null>(null);
+  const [completeError, setCompleteError] = useState<string | null>(null);
 
   const { data: homeData, isLoading: loadingHome } = useQuery<{
     families: Family[];
@@ -107,9 +118,78 @@ export default function SprintPage() {
     },
   });
 
-  const completeMutation = useMutation({
+  // 1단계: 완료 호출 → failedIssues 받아서 모달 표시
+  const completeProbeMutation = useMutation({
     mutationFn: (sprintId: string) => mApi.completeSprint(projectId!, sprintId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["m-home"] }),
+    onSuccess: (data, sprintId) => {
+      const failedIssues = data?.failedIssues ?? [];
+      const sprint = sortedSprints.find((s) => s.id === sprintId);
+      if (failedIssues.length > 0 && sprint) {
+        setCompletingSprint({ id: sprintId, name: sprint.name, failedIssues });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["m-home"] });
+      }
+    },
+  });
+
+  // 2단계: failedAction 지정해서 재호출
+  const completeFinalMutation = useMutation({
+    mutationFn: ({
+      sprintId,
+      failedAction,
+      targetSprintId,
+    }: {
+      sprintId: string;
+      failedAction: "next-sprint" | "backlog" | null;
+      targetSprintId?: string;
+    }) =>
+      mApi.completeSprint(projectId!, sprintId, {
+        failedAction,
+        targetSprintId,
+      }),
+    onSuccess: (data) => {
+      if (data?.error) {
+        setCompleteError(data.error);
+        return;
+      }
+      setCompleteError(null);
+      setCompletingSprint(null);
+      queryClient.invalidateQueries({ queryKey: ["m-home"] });
+    },
+  });
+
+  const deleteSprintMutation = useMutation({
+    mutationFn: (sprintId: string) => mApi.deleteSprint(projectId!, sprintId),
+    onSuccess: () => {
+      setDeletingSprintId(null);
+      setExpandedSprintId(null);
+      queryClient.invalidateQueries({ queryKey: ["m-home"] });
+    },
+  });
+
+  const transferMutation = useMutation({
+    mutationFn: ({
+      issueId,
+      currentSprintId,
+      targetSprintId,
+      mode,
+    }: {
+      issueId: string;
+      currentSprintId: string;
+      targetSprintId: string;
+      mode: "transfer" | "copy";
+    }) =>
+      mApi.transferIssue(projectId!, currentSprintId, {
+        issueId,
+        mode,
+        targetSprintId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["m-home"] });
+      queryClient.invalidateQueries({ queryKey: ["m-sprint-detail"] });
+      setTransferTarget(null);
+      setMovingIssue(null);
+    },
   });
 
   const createMutation = useMutation({
@@ -314,15 +394,30 @@ export default function SprintPage() {
                         )}
                         {sprint.status === "ACTIVE" && (
                           <button
-                            onClick={() => completeMutation.mutate(sprint.id)}
-                            disabled={completeMutation.isPending}
+                            onClick={() => {
+                              setCompleteError(null);
+                              completeProbeMutation.mutate(sprint.id);
+                            }}
+                            disabled={completeProbeMutation.isPending}
                             style={{
                               flex: 1, padding: "10px", backgroundColor: "#fff", color: "#ef4444",
                               border: "1.5px solid #ef4444", borderRadius: 10, fontSize: 13, fontWeight: 600,
-                              cursor: "pointer", opacity: completeMutation.isPending ? 0.7 : 1,
+                              cursor: "pointer", opacity: completeProbeMutation.isPending ? 0.7 : 1,
                             }}
                           >
-                            {completeMutation.isPending ? "완료 중..." : "스프린트 완료"}
+                            {completeProbeMutation.isPending ? "완료 중..." : "스프린트 완료"}
+                          </button>
+                        )}
+                        {sprint.status === "PLANNING" && (
+                          <button
+                            onClick={() => setDeletingSprintId(sprint.id)}
+                            style={{
+                              flex: 1, padding: "10px", backgroundColor: "#fff", color: "#ef4444",
+                              border: "1.5px solid #fecaca", borderRadius: 10, fontSize: 13, fontWeight: 600,
+                              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                            }}
+                          >
+                            <Trash2 size={14} /> 스프린트 삭제
                           </button>
                         )}
                       </div>
@@ -496,8 +591,8 @@ export default function SprintPage() {
                   return (
                     <button
                       key={s.id}
-                      onClick={() => moveMutation.mutate({ issueId: movingIssue.id, sprintId: s.id })}
-                      disabled={moveMutation.isPending}
+                      onClick={() => setTransferTarget({ sprintId: s.id, sprintName: s.name })}
+                      disabled={moveMutation.isPending || transferMutation.isPending}
                       style={{
                         width: "100%", textAlign: "left", padding: "14px 16px",
                         borderRadius: 12, border: "1.5px solid #e5e7eb",
@@ -527,6 +622,239 @@ export default function SprintPage() {
                   이동할 다른 스프린트가 없어요
                 </div>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 이관 vs 복사 선택 모달 */}
+      {transferTarget && movingIssue && (
+        <>
+          <div
+            onClick={() => setTransferTarget(null)}
+            style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 210 }}
+          />
+          <div style={{
+            position: "fixed", left: 16, right: 16, top: "50%", transform: "translateY(-50%)",
+            zIndex: 211, backgroundColor: "#fff", borderRadius: 16, padding: 20,
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
+              {transferTarget.sprintName}(으)로
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
+              이관할까요, 복사할까요?
+            </div>
+            <button
+              onClick={() => transferMutation.mutate({
+                issueId: movingIssue.id,
+                currentSprintId: movingIssue.currentSprintId,
+                targetSprintId: transferTarget.sprintId,
+                mode: "transfer",
+              })}
+              disabled={transferMutation.isPending}
+              style={{
+                width: "100%", padding: "12px", marginBottom: 8,
+                backgroundColor: "#6366f1", color: "#fff", border: "none",
+                borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer",
+                opacity: transferMutation.isPending ? 0.7 : 1,
+              }}
+            >
+              이관 (원본 이동)
+            </button>
+            <button
+              onClick={() => transferMutation.mutate({
+                issueId: movingIssue.id,
+                currentSprintId: movingIssue.currentSprintId,
+                targetSprintId: transferTarget.sprintId,
+                mode: "copy",
+              })}
+              disabled={transferMutation.isPending}
+              style={{
+                width: "100%", padding: "12px", marginBottom: 8,
+                backgroundColor: "#fff", color: "#6366f1",
+                border: "1.5px solid #6366f1", borderRadius: 10, fontSize: 14, fontWeight: 700,
+                cursor: "pointer", opacity: transferMutation.isPending ? 0.7 : 1,
+              }}
+            >
+              복사 (원본 유지)
+            </button>
+            <button
+              onClick={() => setTransferTarget(null)}
+              style={{
+                width: "100%", padding: "10px", backgroundColor: "transparent",
+                color: "#6b7280", border: "none", fontSize: 13, cursor: "pointer",
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 스프린트 완료 - FAILED 처리 모달 */}
+      {completingSprint && (
+        <>
+          <div
+            onClick={() => !completeFinalMutation.isPending && setCompletingSprint(null)}
+            style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 210 }}
+          />
+          <div style={{
+            position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 211,
+            backgroundColor: "#fff", borderRadius: "20px 20px 0 0",
+            padding: "20px",
+            paddingBottom: "max(20px, env(safe-area-inset-bottom))",
+            maxHeight: "80dvh", display: "flex", flexDirection: "column",
+          }}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: "#e5e7eb" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
+              {completingSprint.name} 완료
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>
+              미완료 과제 {completingSprint.failedIssues.length}건 처리 방식을 선택해주세요
+            </div>
+
+            <div style={{
+              flex: 1, overflowY: "auto", marginBottom: 14,
+              backgroundColor: "#f8fafc", borderRadius: 10, padding: "8px 10px",
+            }}>
+              {completingSprint.failedIssues.map((iss) => (
+                <div key={iss.id} style={{
+                  fontSize: 13, color: "#374151", padding: "6px 0",
+                  borderBottom: "1px solid #eef2f7",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  • {iss.title}
+                </div>
+              ))}
+            </div>
+
+            {completeError && (
+              <div style={{
+                padding: "8px 12px", backgroundColor: "#fef2f2", border: "1px solid #fecaca",
+                borderRadius: 8, fontSize: 12, color: "#ef4444", marginBottom: 10,
+              }}>
+                {completeError}
+              </div>
+            )}
+
+            {(() => {
+              const nextPlanning = sortedSprints.find(
+                (s) => s.id !== completingSprint.id && s.status === "PLANNING"
+              );
+              return (
+                <>
+                  <button
+                    onClick={() => {
+                      if (!nextPlanning) {
+                        setCompleteError("이관할 PLANNING 스프린트가 없어요");
+                        return;
+                      }
+                      completeFinalMutation.mutate({
+                        sprintId: completingSprint.id,
+                        failedAction: "next-sprint",
+                        targetSprintId: nextPlanning.id,
+                      });
+                    }}
+                    disabled={completeFinalMutation.isPending || !nextPlanning}
+                    style={{
+                      width: "100%", padding: "12px", marginBottom: 8,
+                      backgroundColor: nextPlanning ? "#6366f1" : "#e0e7ff",
+                      color: nextPlanning ? "#fff" : "#9ca3af",
+                      border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700,
+                      cursor: nextPlanning ? "pointer" : "not-allowed",
+                      opacity: completeFinalMutation.isPending ? 0.7 : 1,
+                    }}
+                  >
+                    다음 스프린트로 이관 {nextPlanning ? `(${nextPlanning.name})` : "(없음)"}
+                  </button>
+                  <button
+                    onClick={() => completeFinalMutation.mutate({
+                      sprintId: completingSprint.id,
+                      failedAction: "backlog",
+                    })}
+                    disabled={completeFinalMutation.isPending}
+                    style={{
+                      width: "100%", padding: "12px", marginBottom: 8,
+                      backgroundColor: "#fff", color: "#6366f1",
+                      border: "1.5px solid #6366f1", borderRadius: 10, fontSize: 14, fontWeight: 700,
+                      cursor: "pointer", opacity: completeFinalMutation.isPending ? 0.7 : 1,
+                    }}
+                  >
+                    백로그로 이동
+                  </button>
+                  <button
+                    onClick={() => completeFinalMutation.mutate({
+                      sprintId: completingSprint.id,
+                      failedAction: null,
+                    })}
+                    disabled={completeFinalMutation.isPending}
+                    style={{
+                      width: "100%", padding: "12px", marginBottom: 8,
+                      backgroundColor: "#f1f5f9", color: "#6b7280",
+                      border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600,
+                      cursor: "pointer", opacity: completeFinalMutation.isPending ? 0.7 : 1,
+                    }}
+                  >
+                    그대로 두기 (보류 처리)
+                  </button>
+                  <button
+                    onClick={() => setCompletingSprint(null)}
+                    disabled={completeFinalMutation.isPending}
+                    style={{
+                      width: "100%", padding: "10px", backgroundColor: "transparent",
+                      color: "#9ca3af", border: "none", fontSize: 13, cursor: "pointer",
+                    }}
+                  >
+                    취소
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </>
+      )}
+
+      {/* 스프린트 삭제 확인 */}
+      {deletingSprintId && (
+        <>
+          <div
+            onClick={() => !deleteSprintMutation.isPending && setDeletingSprintId(null)}
+            style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 210 }}
+          />
+          <div style={{
+            position: "fixed", left: 24, right: 24, top: "50%", transform: "translateY(-50%)",
+            zIndex: 211, backgroundColor: "#fff", borderRadius: 16, padding: 20,
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 8 }}>
+              스프린트를 삭제할까요?
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 18 }}>
+              스프린트에 속한 과제는 백로그로 이동돼요. 이 작업은 되돌릴 수 없어요.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setDeletingSprintId(null)}
+                disabled={deleteSprintMutation.isPending}
+                style={{
+                  flex: 1, padding: "11px", backgroundColor: "#f1f5f9", color: "#374151",
+                  border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={() => deleteSprintMutation.mutate(deletingSprintId)}
+                disabled={deleteSprintMutation.isPending}
+                style={{
+                  flex: 1, padding: "11px", backgroundColor: "#ef4444", color: "#fff",
+                  border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  opacity: deleteSprintMutation.isPending ? 0.7 : 1,
+                }}
+              >
+                {deleteSprintMutation.isPending ? "삭제 중..." : "삭제"}
+              </button>
             </div>
           </div>
         </>

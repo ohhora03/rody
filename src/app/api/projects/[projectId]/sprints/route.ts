@@ -23,9 +23,17 @@ export async function GET(
   const result = await getMemberAndProject(user.id, projectId);
   if ("error" in result) return Response.json({ error: result.error }, { status: result.status });
 
+  const url = new URL(req.url);
+  const includeIssues = url.searchParams.get("includeIssues") === "true";
+
   const sprints = await prisma.sprint.findMany({
     where: { projectId },
     orderBy: { createdAt: "desc" },
+    ...(includeIssues && {
+      include: {
+        issues: { select: { id: true, status: true, points: true } },
+      },
+    }),
   });
   return Response.json({ data: sprints });
 }

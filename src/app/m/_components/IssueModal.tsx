@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, Trash2, Send, ArrowRight, ChevronDown } from "lucide-react";
 import { mApi } from "../_lib/api";
 
-type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD";
+type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD" | "FAILED";
 type Priority = "HIGH" | "MEDIUM" | "LOW";
 
 interface User { id: string; name: string; color: string; email?: string }
@@ -55,6 +55,7 @@ const STATUS_CONFIG: Record<IssueStatus, { label: string; color: string; bg: str
   CLOSED:      { label: "종료",    color: "#10b981", bg: "#f0fdf4" },
   REJECTED:    { label: "반려",    color: "#ef4444", bg: "#fef2f2" },
   HOLD:        { label: "보류",    color: "#9ca3af", bg: "#f9fafb" },
+  FAILED:      { label: "실패",    color: "#dc2626", bg: "#fef2f2" },
 };
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string }> = {

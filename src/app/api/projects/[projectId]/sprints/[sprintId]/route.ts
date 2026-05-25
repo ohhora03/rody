@@ -51,3 +51,37 @@ export async function PATCH(
   });
   return Response.json({ data: sprint });
 }
+
+export async function DELETE(
+  req: NextRequest,
+  ctx: RouteContext<"/api/projects/[projectId]/sprints/[sprintId]">
+) {
+  const user = await getSessionUser(req);
+  if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
+
+  const { projectId, sprintId } = await ctx.params;
+
+  const member = await prisma.familyMember.findFirst({
+    where: { userId: user.id, family: { projects: { some: { id: projectId } } } },
+  });
+  if (!member) return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
+  if (member.role !== "MASTER") {
+    return Response.json({ error: "마스터만 스프린트를 삭제할 수 있습니다" }, { status: 403 });
+  }
+
+  const sprint = await prisma.sprint.findFirst({ where: { id: sprintId, projectId } });
+  if (!sprint) return Response.json({ error: "스프린트를 찾을 수 없습니다" }, { status: 404 });
+  if (sprint.status !== "PLANNING") {
+    return Response.json(
+      { error: "PLANNING 상태의 스프린트만 삭제할 수 있습니다" },
+      { status: 400 }
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.issue.updateMany({ where: { sprintId }, data: { sprintId: null } }),
+    prisma.sprint.delete({ where: { id: sprintId } }),
+  ]);
+
+  return Response.json({ data: { deleted: true } });
+}

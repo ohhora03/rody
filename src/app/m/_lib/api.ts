@@ -47,10 +47,44 @@ export const mApi = {
       method: "POST",
     }).then((r) => r.json()),
 
-  completeSprint: (projectId: string, sprintId: string) =>
+  completeSprint: (
+    projectId: string,
+    sprintId: string,
+    body?: { failedAction?: "next-sprint" | "backlog" | null; targetSprintId?: string }
+  ) =>
     fetch(`/api/projects/${projectId}/sprints/${sprintId}/complete`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
     }).then((r) => r.json()),
+
+  deleteSprint: (projectId: string, sprintId: string) =>
+    fetch(`/api/projects/${projectId}/sprints/${sprintId}`, {
+      method: "DELETE",
+    }).then((r) => r.json()),
+
+  transferIssue: (
+    projectId: string,
+    sprintId: string,
+    body: { issueId: string; mode: "transfer" | "copy"; targetSprintId: string }
+  ) =>
+    fetch(`/api/projects/${projectId}/sprints/${sprintId}/transfer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => r.json()),
+
+  updateFamily: (familyId: string, body: { name: string }) =>
+    fetch(`/api/families/${familyId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => r.json()),
+
+  sprintsWithIssues: (projectId: string) =>
+    fetch(`/api/projects/${projectId}/sprints?includeIssues=true`)
+      .then((r) => r.json())
+      .then((d) => d.data),
 
   joinFamily: (body: object) =>
     fetch("/api/families/join", {

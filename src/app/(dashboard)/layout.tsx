@@ -33,6 +33,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Sidebar
         projectId={project?.id ?? ""}
         familyId={member.familyId}
+        familyName={member.family.name}
+        isMaster={member.role === "MASTER"}
         activeSprint={activeSprint ? { id: activeSprint.id, name: activeSprint.name } : null}
         user={{ name: session.user.name, email: session.user.email, color: dbUser?.color }}
       />

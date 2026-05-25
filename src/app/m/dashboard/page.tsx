@@ -11,7 +11,7 @@ import PriorityDot from "../_components/PriorityDot";
 import CreateIssueFAB from "../_components/CreateIssueFAB";
 import IssueModal from "../_components/IssueModal";
 
-type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD";
+type IssueStatus = "READY" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "REJECTED" | "HOLD" | "FAILED";
 type Priority = "HIGH" | "MEDIUM" | "LOW";
 type TaskStatus = "PENDING" | "DONE";
 type RepeatType = "NONE" | "DAILY" | "WEEKLY";
@@ -138,12 +138,23 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const [viewMode, setViewMode] = useState<"overview" | "assignee">("overview");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  // 스프린트 필터: "active" | "all" | sprintId
+  const [sprintFilter, setSprintFilter] = useState<string>("active");
 
   const { data, isLoading, refetch } = useQuery<HomeData>({
     queryKey: ["m-home"],
     queryFn: mApi.home,
     enabled: !!session?.user,
     staleTime: 10 * 60 * 1000,
+  });
+
+  // 전체 스프린트(이슈 포함) — 필터 드롭다운용
+  const projectIdForSprints = data?.project?.id;
+  const { data: allSprints = [] } = useQuery<Array<Sprint & { issues?: Issue[] }>>({
+    queryKey: ["m-sprints-with-issues", projectIdForSprints],
+    queryFn: () => mApi.sprintsWithIssues(projectIdForSprints!),
+    enabled: !!projectIdForSprints,
+    staleTime: 60_000,
   });
 
   const { data: myTasks = [] } = useQuery<MyTask[]>({
@@ -166,7 +177,24 @@ export default function DashboardPage() {
   const family = data?.families?.[0] ?? null;
   const project = data?.project ?? null;
   const activeSprint = data?.activeSprint ?? null;
-  const issues = data?.issues ?? [];
+  const homeIssues = data?.issues ?? [];
+
+  // 필터에 따른 이슈 선택
+  // - "active": homeIssues (현재 활성 스프린트)
+  // - "all": 모든 스프린트의 이슈 합산
+  // - sprintId: 특정 스프린트의 이슈
+  const issues: Issue[] = (() => {
+    if (sprintFilter === "active") return homeIssues;
+    if (sprintFilter === "all") {
+      const all: Issue[] = [];
+      allSprints.forEach((s) => {
+        (s.issues ?? []).forEach((i) => all.push(i as Issue));
+      });
+      return all;
+    }
+    const target = allSprints.find((s) => s.id === sprintFilter);
+    return (target?.issues ?? []) as Issue[];
+  })();
 
   const userId = session?.user?.id;
   const userName = session?.user?.name ?? "사용자";
@@ -203,6 +231,30 @@ export default function DashboardPage() {
           {family?.name ?? "가족 그룹"}
         </div>
       </div>
+
+      {/* 스프린트 필터 */}
+      {allSprints.length > 0 && (
+        <div style={{ padding: "0 20px 12px" }}>
+          <select
+            value={sprintFilter}
+            onChange={(e) => setSprintFilter(e.target.value)}
+            style={{
+              width: "100%", padding: "10px 12px",
+              border: "1.5px solid #e5e7eb", borderRadius: 10,
+              fontSize: 13, fontWeight: 600, color: "#374151",
+              backgroundColor: "#fff", outline: "none",
+            }}
+          >
+            <option value="active">활성 스프린트</option>
+            <option value="all">전체 누적</option>
+            {allSprints.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.status === "ACTIVE" ? "진행 중" : s.status === "PLANNING" ? "계획 중" : "완료됨"})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* 내 할 일 섹션 */}
       {pendingTasks.length > 0 && (

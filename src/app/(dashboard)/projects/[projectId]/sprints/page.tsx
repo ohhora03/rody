@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Plus, Play, CheckSquare, Zap, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+import { Plus, Play, CheckSquare, Zap, ChevronDown, ChevronUp, ExternalLink, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { getDDayLabel, cn, STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import type { Sprint, IssueStatus, Priority } from "@/types";
@@ -21,6 +21,16 @@ interface SprintWithIssues extends Sprint {
   issues?: IssueItem[];
 }
 
+interface FailedIssueInfo {
+  id: string;
+  title: string;
+  status: IssueStatus;
+  points: number;
+  assigneeId: string | null;
+}
+
+type FailedAction = "next-sprint" | "backlog" | null;
+
 export default function SprintsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const [sprints, setSprints] = useState<SprintWithIssues[]>([]);
@@ -30,6 +40,15 @@ export default function SprintsPage() {
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [failedModal, setFailedModal] = useState<{
+    sprintId: string;
+    failedIssues: FailedIssueInfo[];
+    action: FailedAction;
+    targetSprintId: string;
+  } | null>(null);
+  const [processingComplete, setProcessingComplete] = useState(false);
+  const [deleteModalSprintId, setDeleteModalSprintId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/sprints`);
@@ -89,10 +108,74 @@ export default function SprintsPage() {
   }
 
   async function completeSprint(sprintId: string) {
-    if (!confirm("스프린트를 완료하시겠습니까? 미완료 이슈는 백로그로 이동합니다.")) return;
-    const res = await fetch(`/api/projects/${projectId}/sprints/${sprintId}/complete`, { method: "POST" });
-    if (res.ok) { toast.success("스프린트가 완료되었습니다"); load(); }
-    else { const j = await res.json(); toast.error(j.error); }
+    if (!confirm("스프린트를 완료하시겠습니까?")) return;
+    setProcessingComplete(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/sprints/${sprintId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error); return; }
+      const failedIssues: FailedIssueInfo[] = json.failedIssues ?? [];
+      if (failedIssues.length > 0) {
+        setFailedModal({ sprintId, failedIssues, action: null, targetSprintId: "" });
+      } else {
+        toast.success("스프린트가 완료되었습니다");
+        load();
+      }
+    } finally {
+      setProcessingComplete(false);
+    }
+  }
+
+  async function applyFailedAction() {
+    if (!failedModal) return;
+    const { sprintId, action, targetSprintId } = failedModal;
+    if (action === null) {
+      // 그대로 두기 -> 모달만 닫고 새로고침 (이미 1차 호출에서 COMPLETED 처리됨)
+      toast.success("스프린트가 완료되었습니다");
+      setFailedModal(null);
+      load();
+      return;
+    }
+    if (action === "next-sprint" && !targetSprintId) {
+      toast.error("이관할 스프린트를 선택해주세요");
+      return;
+    }
+    setProcessingComplete(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/sprints/${sprintId}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ failedAction: action, targetSprintId: targetSprintId || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error); return; }
+      toast.success(action === "next-sprint" ? "다음 스프린트로 이관했어요" : "백로그로 이동했어요");
+      setFailedModal(null);
+      load();
+    } finally {
+      setProcessingComplete(false);
+    }
+  }
+
+  async function deleteSprint(sprintId: string) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/sprints/${sprintId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("스프린트를 삭제했어요");
+        setDeleteModalSprintId(null);
+        load();
+      } else {
+        const j = await res.json();
+        toast.error(j.error || "삭제에 실패했습니다");
+      }
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const statusLabel: Record<string, string> = { PLANNING: "계획", ACTIVE: "진행 중", COMPLETED: "완료" };
@@ -185,12 +268,21 @@ export default function SprintsPage() {
                 {/* 액션 버튼 */}
                 <div className="flex gap-2 px-5 py-3 bg-gray-50/50">
                   {sprint.status === "PLANNING" && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); startSprint(sprint.id); }}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700"
-                    >
-                      <Play className="w-3.5 h-3.5" />스프린트 시작
-                    </button>
+                    <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); startSprint(sprint.id); }}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700"
+                      >
+                        <Play className="w-3.5 h-3.5" />스프린트 시작
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteModalSprintId(sprint.id); }}
+                        className="flex items-center gap-1.5 px-3 py-2 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
+                        title="스프린트 삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />삭제
+                      </button>
+                    </>
                   )}
                   {sprint.status === "ACTIVE" && (
                     <button
@@ -344,6 +436,141 @@ export default function SprintsPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* 미완료 이슈 처리 모달 */}
+      {failedModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900">미완료 과제 처리</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                완료되지 않은 과제가 <span className="font-semibold text-red-600">{failedModal.failedIssues.length}건</span> 있습니다. 처리 방식을 선택해주세요.
+              </p>
+            </div>
+
+            <div className="max-h-40 overflow-y-auto space-y-1 bg-gray-50 rounded-xl p-3">
+              {failedModal.failedIssues.map((iss) => {
+                const st = STATUS_CONFIG[iss.status];
+                return (
+                  <div key={iss.id} className="flex items-center gap-2 text-xs">
+                    <span className={cn("px-1.5 py-0.5 rounded font-semibold", st?.bg, st?.text)}>
+                      {st?.label ?? iss.status}
+                    </span>
+                    <span className="flex-1 truncate text-gray-700">{iss.title}</span>
+                    <span className="text-indigo-600 font-medium">{iss.points}pt</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="failedAction"
+                  checked={failedModal.action === "next-sprint"}
+                  onChange={() => setFailedModal({ ...failedModal, action: "next-sprint" })}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800">다음 스프린트로 이관</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">PLANNING 상태의 스프린트로 이동합니다 (상태는 READY로 초기화)</p>
+                  {failedModal.action === "next-sprint" && (
+                    <select
+                      value={failedModal.targetSprintId}
+                      onChange={(e) => setFailedModal({ ...failedModal, targetSprintId: e.target.value })}
+                      className="mt-2 w-full px-3 py-2 rounded-lg border border-gray-200 text-xs"
+                    >
+                      <option value="">스프린트 선택</option>
+                      {sprints.filter((s) => s.status === "PLANNING").map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </label>
+
+              <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="failedAction"
+                  checked={failedModal.action === "backlog"}
+                  onChange={() => setFailedModal({ ...failedModal, action: "backlog", targetSprintId: "" })}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">백로그로 이동</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">스프린트에서 빼서 백로그로 옮깁니다</p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="failedAction"
+                  checked={failedModal.action === null}
+                  onChange={() => setFailedModal({ ...failedModal, action: null, targetSprintId: "" })}
+                  className="mt-0.5"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">그대로 두기</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">미완료 과제를 현재 스프린트에 남겨둡니다 (실패로 마감)</p>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setFailedModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600"
+                disabled={processingComplete}
+              >
+                나중에
+              </button>
+              <button
+                type="button"
+                onClick={applyFailedAction}
+                disabled={processingComplete}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium disabled:opacity-50"
+              >
+                {processingComplete ? "처리 중..." : "적용"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 스프린트 삭제 확인 모달 */}
+      {deleteModalSprintId && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
+            <div>
+              <h3 className="font-semibold text-gray-900">스프린트 삭제</h3>
+              <p className="text-sm text-gray-600 mt-2">
+                정말 이 스프린트를 삭제하시겠습니까?<br />
+                <span className="text-xs text-gray-500">스프린트에 속한 과제는 백로그로 이동합니다.</span>
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteModalSprintId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600"
+                disabled={deleting}
+              >
+                취소
+              </button>
+              <button
+                onClick={() => deleteSprint(deleteModalSprintId)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? "삭제 중..." : "삭제"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

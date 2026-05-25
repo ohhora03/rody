@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, Copy, Check, X, LogOut } from "lucide-react";
+import { Bell, Copy, Check, X, LogOut, Pencil } from "lucide-react";
 import { mApi } from "../_lib/api";
 import Avatar from "../_components/Avatar";
 
@@ -286,6 +286,9 @@ export default function SettingsPage() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [nickname, setNickname] = useState("");
+  const [editingFamilyName, setEditingFamilyName] = useState(false);
+  const [familyNameDraft, setFamilyNameDraft] = useState("");
+  const [familyNameError, setFamilyNameError] = useState<string | null>(null);
 
   const { data: families, isLoading } = useQuery<Family[]>({
     queryKey: ["m-families"],
@@ -294,6 +297,23 @@ export default function SettingsPage() {
   });
 
   const family = families?.[0];
+  const currentMember = family?.members.find((m) => m.user.id === session?.user?.id);
+  const isMaster = currentMember?.role === "MASTER";
+
+  const updateFamilyMutation = useMutation({
+    mutationFn: () => mApi.updateFamily(family!.id, { name: familyNameDraft.trim() }),
+    onSuccess: (res) => {
+      if (res?.error) {
+        setFamilyNameError(res.error);
+        return;
+      }
+      setFamilyNameError(null);
+      setEditingFamilyName(false);
+      queryClient.invalidateQueries({ queryKey: ["m-families"] });
+      queryClient.invalidateQueries({ queryKey: ["m-home"] });
+    },
+    onError: () => setFamilyNameError("저장에 실패했어요"),
+  });
 
   const joinMutation = useMutation({
     mutationFn: () => mApi.joinFamily({ inviteCode, nickname }),
@@ -355,10 +375,83 @@ export default function SettingsPage() {
                 <span style={{ flex: 1, fontSize: 14, color: "#374151", fontWeight: 500 }}>
                   그룹 이름
                 </span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
-                  {family.name}
-                </span>
+                {editingFamilyName ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      autoFocus
+                      value={familyNameDraft}
+                      onChange={(e) => setFamilyNameDraft(e.target.value)}
+                      maxLength={30}
+                      placeholder="가족 이름"
+                      style={{
+                        width: 130, padding: "6px 10px",
+                        border: "1.5px solid #6366f1", borderRadius: 8,
+                        fontSize: 14, fontWeight: 600, color: "#111827",
+                        outline: "none", boxSizing: "border-box",
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (!familyNameDraft.trim()) {
+                          setFamilyNameError("이름을 입력해주세요");
+                          return;
+                        }
+                        updateFamilyMutation.mutate();
+                      }}
+                      disabled={updateFamilyMutation.isPending}
+                      style={{
+                        background: "none", border: "none", cursor: "pointer",
+                        color: "#16a34a", padding: 4, display: "flex", alignItems: "center",
+                      }}
+                    >
+                      <Check size={18} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingFamilyName(false);
+                        setFamilyNameError(null);
+                      }}
+                      disabled={updateFamilyMutation.isPending}
+                      style={{
+                        background: "none", border: "none", cursor: "pointer",
+                        color: "#6b7280", padding: 4, display: "flex", alignItems: "center",
+                      }}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>
+                      {family.name}
+                    </span>
+                    {isMaster && (
+                      <button
+                        onClick={() => {
+                          setFamilyNameDraft(family.name);
+                          setFamilyNameError(null);
+                          setEditingFamilyName(true);
+                        }}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer",
+                          color: "#6b7280", padding: 4, display: "flex", alignItems: "center",
+                        }}
+                        aria-label="가족 이름 편집"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </Row>
+              {familyNameError && (
+                <div style={{
+                  fontSize: 12, color: "#ef4444",
+                  padding: "0 16px 8px", textAlign: "right",
+                }}>
+                  {familyNameError}
+                </div>
+              )}
               <Row isLast>
                 <span style={{ flex: 1, fontSize: 14, color: "#374151", fontWeight: 500 }}>
                   초대 코드
