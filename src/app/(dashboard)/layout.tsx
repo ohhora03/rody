@@ -8,25 +8,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
 
-  const member = await prisma.familyMember.findFirst({
-    where: { userId: session.user.id },
-    include: {
-      family: {
-        include: {
-          projects: {
-            include: { sprints: { where: { status: "ACTIVE" }, take: 1 } },
-            take: 1,
+  const [member, dbUser] = await Promise.all([
+    prisma.familyMember.findFirst({
+      where: { userId: session.user.id },
+      include: {
+        family: {
+          include: {
+            projects: {
+              include: { sprints: { where: { status: "ACTIVE" }, take: 1 } },
+              take: 1,
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { color: true } }),
+  ]);
 
   if (!member) redirect("/onboarding");
 
   const project = member.family.projects[0];
   const activeSprint = project?.sprints[0] ?? null;
-  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id }, select: { color: true } });
 
   return (
     <div className="flex min-h-screen bg-[#f8f7ff]">
