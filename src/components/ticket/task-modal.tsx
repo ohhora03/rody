@@ -14,11 +14,12 @@ type Props = {
   allSprints?: Sprint[];
   onClose: () => void;
   onSave: () => void;
+  onTransferOpen?: () => void;
 };
 
 const ALL_STATUSES = Object.entries(STATUS_CONFIG) as [keyof typeof STATUS_CONFIG, (typeof STATUS_CONFIG)[keyof typeof STATUS_CONFIG]][];
 
-export function TaskModal({ task, projectId, sprintId, members, allSprints, onClose, onSave }: Props) {
+export function TaskModal({ task, projectId, sprintId, members, allSprints, onClose, onSave, onTransferOpen }: Props) {
   const isEdit = !!task;
   const [title, setTitle] = useState(task?.title ?? "");
   const [desc, setDesc] = useState(task?.description ?? "");
@@ -143,9 +144,9 @@ export function TaskModal({ task, projectId, sprintId, members, allSprints, onCl
             />
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {isEdit && sprintId && allSprints && allSprints.length > 0 && (
+            {isEdit && sprintId && (
               <button
-                onClick={() => { setShowTransferModal(true); setTransferTargetSprintId(""); setTransferMode("transfer"); }}
+                onClick={() => { onTransferOpen?.(); setShowTransferModal(true); setTransferTargetSprintId(""); setTransferMode("transfer"); }}
                 className="p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-colors"
                 title="이관/복사"
               >

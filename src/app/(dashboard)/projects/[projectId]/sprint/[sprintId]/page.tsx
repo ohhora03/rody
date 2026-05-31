@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { BarChart2, Filter, Layers, Plus } from "lucide-react";
 import { PRIORITY_CONFIG, STATUS_CONFIG, KANBAN_COLUMNS, getDDayLabel, cn } from "@/lib/utils";
@@ -14,28 +15,53 @@ import { toast } from "sonner";
 export default function SprintPage() {
   const { projectId, sprintId } = useParams<{ projectId: string; sprintId: string }>();
   const { data: session } = useSession();
-  const [sprint, setSprint] = useState<SprintWithIssues | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [allSprints, setAllSprints] = useState<Sprint[]>([]);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<"all" | "mine" | "high">("all");
   const [swimlane, setSwimlane] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const [selectedTask, setSelectedTask] = useState<IssueWithRelations | null>(null);
   const [showCreateFor, setShowCreateFor] = useState<IssueStatus | null>(null);
 
-  const load = useCallback(async () => {
-    const [spRes, mbRes, listRes] = await Promise.all([
-      fetch(`/api/projects/${projectId}/sprints/${sprintId}`),
-      fetch(`/api/projects/${projectId}/members`),
-      fetch(`/api/projects/${projectId}/sprints`),
-    ]);
-    const [spJson, mbJson, listJson] = await Promise.all([spRes.json(), mbRes.json(), listRes.json()]);
-    if (spJson.data) setSprint(spJson.data);
-    setMembers(mbJson.data ?? []);
-    setAllSprints(listJson.data ?? []);
-  }, [projectId, sprintId]);
+  // 스프린트 상세 — 30초 캐시
+  const { data: sprint, refetch: refetchSprint } = useQuery<SprintWithIssues>({
+    queryKey: ["sprint", sprintId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/sprints/${sprintId}`);
+      const j = await res.json();
+      return j.data;
+    },
+    staleTime: 30_000,
+    enabled: !!projectId && !!sprintId,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  // 멤버 — 5분 캐시 (자주 안 바뀜)
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ["members", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/members`);
+      const j = await res.json();
+      return j.data ?? [];
+    },
+    staleTime: 5 * 60_000,
+    enabled: !!projectId,
+  });
+
+  // 스프린트 목록 — 이관 모달 열 때만 fetch (enabled: showTransferModal)
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const { data: allSprints = [] } = useQuery<Sprint[]>({
+    queryKey: ["sprints", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/sprints`);
+      const j = await res.json();
+      return j.data ?? [];
+    },
+    staleTime: 60_000,
+    enabled: transferModalOpen,
+  });
+
+  function invalidateSprint() {
+    queryClient.invalidateQueries({ queryKey: ["sprint", sprintId] });
+  }
 
   async function onDragEnd(result: DropResult) {
     if (!result.destination || !sprint) return;
@@ -43,7 +69,8 @@ export default function SprintPage() {
     const newStatus = result.destination.droppableId.split(":").pop() as IssueStatus;
     const newOrder = result.destination.index;
 
-    setSprint((prev) => {
+    // 낙관적 업데이트
+    queryClient.setQueryData<SprintWithIssues>(["sprint", sprintId], (prev) => {
       if (!prev) return prev;
       return { ...prev, issues: prev.issues.map((i) => i.id === issueId ? { ...i, status: newStatus, order: newOrder } : i) };
     });
@@ -59,7 +86,7 @@ export default function SprintPage() {
       confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 }, colors: ["#6366f1", "#8b5cf6", "#c4b5fd"] });
       toast.success("종료! 🎉");
     }
-    load();
+    invalidateSprint();
   }
 
   if (!sprint) return (
@@ -247,8 +274,9 @@ export default function SprintPage() {
           sprintId={sprintId}
           members={members}
           allSprints={allSprints}
-          onClose={() => setSelectedTask(null)}
-          onSave={() => { setSelectedTask(null); load(); }}
+          onClose={() => { setSelectedTask(null); setTransferModalOpen(false); }}
+          onSave={() => { setSelectedTask(null); setTransferModalOpen(false); invalidateSprint(); }}
+          onTransferOpen={() => setTransferModalOpen(true)}
         />
       )}
 
@@ -259,7 +287,7 @@ export default function SprintPage() {
           members={members}
           allSprints={allSprints}
           onClose={() => setShowCreateFor(null)}
-          onSave={() => { setShowCreateFor(null); load(); }}
+          onSave={() => { setShowCreateFor(null); invalidateSprint(); }}
         />
       )}
     </div>
