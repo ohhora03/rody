@@ -51,7 +51,7 @@ export async function POST(
     // 진행 중이던 과제는 HOLD 처리 (기존 동작 유지)
     await prisma.issue.updateMany({
       where: { sprintId, status: "IN_PROGRESS" },
-      data: { status: "HOLD" },
+      data: { status: "READY" },
     });
     const sprint = await prisma.sprint.update({
       where: { id: sprintId },
@@ -80,7 +80,7 @@ export async function POST(
       }),
       prisma.issue.updateMany({
         where: { sprintId, status: "IN_PROGRESS" },
-        data: { status: "HOLD" },
+        data: { status: "READY" },
       }),
       prisma.sprint.update({
         where: { id: sprintId },

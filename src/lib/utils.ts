@@ -46,7 +46,6 @@ export const STATUS_CONFIG = {
   RESOLVED: { label: "해결됨", color: "#f59e0b", bg: "bg-amber-50", text: "text-amber-700" },
   CLOSED: { label: "종료", color: "#10b981", bg: "bg-green-50", text: "text-green-700" },
   REJECTED: { label: "반려", color: "#ef4444", bg: "bg-red-50", text: "text-red-700" },
-  HOLD: { label: "보류", color: "#9ca3af", bg: "bg-gray-50", text: "text-gray-600" },
   FAILED: { label: "실패", color: "#dc2626", bg: "bg-red-50", text: "text-red-600" },
 } as const;
 
@@ -55,4 +54,5 @@ export const KANBAN_COLUMNS: (keyof typeof STATUS_CONFIG)[] = [
   "IN_PROGRESS",
   "RESOLVED",
   "CLOSED",
+  "FAILED",
 ];

@@ -160,7 +160,6 @@ enum IssueStatus {
   RESOLVED
   CLOSED
   REJECTED
-  HOLD
   FAILED
 }
 

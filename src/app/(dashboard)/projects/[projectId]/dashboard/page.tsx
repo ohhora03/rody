@@ -50,7 +50,7 @@ export default function DashboardPage() {
   const closedTasks = issues.filter((i) => i.status === "CLOSED").length;
   const inProgressTasks = issues.filter((i) => i.status === "IN_PROGRESS").length;
   const rejectedTasks = issues.filter((i) => i.status === "REJECTED").length;
-  const holdTasks = issues.filter((i) => i.status === "HOLD").length;
+  const failedTasks = issues.filter((i) => i.status === "FAILED").length;
   const totalPts = issues.reduce((s, i) => s + i.points, 0);
   const closedPts = issues.filter((i) => i.status === "CLOSED").reduce((s, i) => s + i.points, 0);
   const pct = totalTasks > 0 ? Math.round((closedTasks / totalTasks) * 100) : 0;
@@ -130,7 +130,7 @@ export default function DashboardPage() {
         <StatCard icon={<Target className="w-5 h-5" />} label="전체 과제" value={totalTasks} bg="bg-indigo-50" text="text-indigo-600" />
         <StatCard icon={<CheckCircle2 className="w-5 h-5" />} label="종료" value={closedTasks} sub={`${pct}% 달성 · ${closedPts}점`} bg="bg-green-50" text="text-green-600" />
         <StatCard icon={<Clock className="w-5 h-5" />} label="진행 중" value={inProgressTasks} bg="bg-purple-50" text="text-purple-600" />
-        <StatCard icon={<Award className="w-5 h-5" />} label="전체 포인트" value={`${totalPts}점`} sub={`보류 ${holdTasks} · 반려 ${rejectedTasks}`} bg="bg-amber-50" text="text-amber-600" />
+        <StatCard icon={<Award className="w-5 h-5" />} label="전체 포인트" value={`${totalPts}점`} sub={`실패 ${failedTasks} · 반려 ${rejectedTasks}`} bg="bg-amber-50" text="text-amber-600" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
