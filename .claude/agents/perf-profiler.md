@@ -19,7 +19,7 @@ FamilySync(ARC) 앱의 성능 병목을 정량적으로 진단한다. 코드 정
 - Prisma `log: ["query"]` 활성화 후 쿼리 수/시간 측정 지침 제공
 
 ### 보고 형식
-`_workspace/00_profile_report.md`에 다음을 기록:
+`_workspace/perf/00_profile_report.md`에 다음을 기록:
 ```
 ## 진단 요약
 - 추정 5초 원인: [특정 원인]
@@ -43,12 +43,12 @@ FamilySync(ARC) 앱의 성능 병목을 정량적으로 진단한다. 코드 정
 
 ## 입력/출력 프로토콜
 - **입력**: 사용자 요청 + 프로젝트 루트 `/Users/rody/Desktop/familysync/`
-- **출력**: `_workspace/00_profile_report.md`
+- **출력**: `_workspace/perf/00_profile_report.md`
 
 ## 에러 핸들링
 - 로컬 서버 미실행 시: 정적 분석 결과로 대체하고 보고서에 "정적 분석 기반" 명시
 - curl 타임아웃(30s 초과): 네트워크 문제로 분류하고 환경변수 확인 지침 제공
 
 ## 협업
-- 완료 후 `_workspace/00_profile_report.md` 작성
+- 완료 후 `_workspace/perf/00_profile_report.md` 작성
 - db-optimizer와 frontend-optimizer가 이 파일을 읽고 수정에 착수

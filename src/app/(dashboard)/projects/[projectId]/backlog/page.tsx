@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, GripVertical, ChevronDown, ChevronRight, Zap, Package } from "lucide-react";
 import { PRIORITY_CONFIG, STATUS_CONFIG, cn } from "@/lib/utils";
 import type { IssueWithRelations, Sprint, Member } from "@/types";
@@ -25,30 +26,55 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function BacklogPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [issues, setIssues] = useState<IssueWithRelations[]>([]);
-  const [sprints, setSprints] = useState<Sprint[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [defaultSprintId, setDefaultSprintId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<IssueWithRelations | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [movingIssue, setMovingIssue] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const [issRes, spRes, mbRes] = await Promise.all([
-      fetch(`/api/issues?projectId=${projectId}`),
-      fetch(`/api/projects/${projectId}/sprints`),
-      fetch(`/api/projects/${projectId}/members`),
-    ]);
-    const [issJson, spJson, mbJson] = await Promise.all([issRes.json(), spRes.json(), mbRes.json()]);
-    setIssues(issJson.data ?? []);
-    setSprints(spJson.data ?? []);
-    setMembers(mbJson.data ?? []);
-    setLoading(false);
-  }, [projectId]);
+  // 이슈 — 60초 캐시
+  const { data: issues = [], isLoading: issuesLoading } = useQuery<IssueWithRelations[]>({
+    queryKey: ["issues", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/issues?projectId=${projectId}`);
+      const j = await res.json();
+      return j.data ?? [];
+    },
+    staleTime: 60_000,
+    enabled: !!projectId,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  // 스프린트 목록 — sprint kanban 페이지와 동일 키 공유
+  const { data: sprints = [], isLoading: sprintsLoading } = useQuery<Sprint[]>({
+    queryKey: ["sprints", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/sprints`);
+      const j = await res.json();
+      return j.data ?? [];
+    },
+    staleTime: 60_000,
+    enabled: !!projectId,
+  });
+
+  // 멤버 — 5분 캐시 (자주 안 바뀜), sprint kanban 페이지와 동일 키 공유
+  const { data: members = [] } = useQuery<Member[]>({
+    queryKey: ["members", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/members`);
+      const j = await res.json();
+      return j.data ?? [];
+    },
+    staleTime: 5 * 60_000,
+    enabled: !!projectId,
+  });
+
+  const loading = issuesLoading || sprintsLoading;
+
+  function refresh() {
+    queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["sprints", projectId] });
+  }
 
   function openCreate(sprintId: string | null) {
     setDefaultSprintId(sprintId);
@@ -62,7 +88,7 @@ export default function BacklogPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sprintId }),
     });
-    if (res.ok) { toast.success(sprintId ? "스프린트로 이동" : "백로그로 이동"); load(); }
+    if (res.ok) { toast.success(sprintId ? "스프린트로 이동" : "백로그로 이동"); refresh(); }
     else toast.error("이동 실패");
     setMovingIssue(null);
   }
@@ -166,7 +192,7 @@ export default function BacklogPage() {
           sprintId={defaultSprintId}
           members={members}
           onClose={() => setShowModal(false)}
-          onSave={() => { setShowModal(false); load(); }}
+          onSave={() => { setShowModal(false); refresh(); }}
         />
       )}
 
@@ -176,7 +202,7 @@ export default function BacklogPage() {
           projectId={projectId}
           members={members}
           onClose={() => setSelectedTask(null)}
-          onSave={() => { setSelectedTask(null); load(); }}
+          onSave={() => { setSelectedTask(null); refresh(); }}
         />
       )}
     </div>

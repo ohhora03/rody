@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/get-session";
+import { getProjectMembership } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import type { Priority } from "@/types";
 
@@ -23,12 +24,8 @@ export async function GET(req: NextRequest) {
 
   if (!projectId) return Response.json({ error: "projectId가 필요합니다" }, { status: 400 });
 
-  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { familyId: true } });
-  if (!project) return Response.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
-
-  const member = await prisma.familyMember.findUnique({
-    where: { userId_familyId: { userId: user.id, familyId: project.familyId } },
-  });
+  // 권한 검증: project + familyMember 직렬 2 RTT를 단일 쿼리로 통합
+  const member = await getProjectMembership(user.id, projectId);
   if (!member) return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
 
   const issues = await prisma.issue.findMany({
@@ -54,19 +51,16 @@ export async function POST(req: NextRequest) {
 
   if (!title?.trim() || !projectId) return Response.json({ error: "title과 projectId는 필수입니다" }, { status: 400 });
 
-  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { familyId: true } });
-  if (!project) return Response.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
-
-  const member = await prisma.familyMember.findUnique({
-    where: { userId_familyId: { userId: user.id, familyId: project.familyId } },
-  });
+  // 권한 검증과 order 조회를 병렬화(이전엔 권한 2 RTT + order = 3 직렬 RTT)
+  const [member, last] = await Promise.all([
+    getProjectMembership(user.id, projectId),
+    prisma.issue.findFirst({
+      where: { projectId, sprintId: sprintId ?? null },
+      orderBy: { order: "desc" },
+      select: { order: true },
+    }),
+  ]);
   if (!member) return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
-
-  const last = await prisma.issue.findFirst({
-    where: { projectId, sprintId: sprintId ?? null },
-    orderBy: { order: "desc" },
-    select: { order: true },
-  });
 
   const issue = await prisma.issue.create({
     data: {

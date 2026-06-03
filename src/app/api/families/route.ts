@@ -7,9 +7,20 @@ export async function GET(req: NextRequest) {
   const user = await getSessionUser(req);
   if (!user) return Response.json({ error: "인증이 필요합니다" }, { status: 401 });
 
+  // members.user 전 컬럼(include:true) 대신 표시에 필요한 필드만 select (페이로드 경량화)
   const memberships = await prisma.familyMember.findMany({
     where: { userId: user.id },
-    include: { family: { include: { members: { include: { user: true } } } } },
+    include: {
+      family: {
+        include: {
+          members: {
+            include: {
+              user: { select: { id: true, name: true, color: true, email: true, image: true } },
+            },
+          },
+        },
+      },
+    },
   });
 
   const families = memberships.map((m) => m.family);

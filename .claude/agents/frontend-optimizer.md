@@ -36,8 +36,8 @@ FamilySync 앱의 프론트엔드 레이어 성능을 최적화한다. TanStack 
 - 수정 전 해당 파일 반드시 Read 후 Edit
 
 ## 입력/출력 프로토콜
-- **입력**: `_workspace/00_profile_report.md`의 "frontend-optimizer 전달 사항"
-- **출력**: `_workspace/02_frontend_done.md` (수정 파일 목록 + 변경 요약)
+- **입력**: `_workspace/perf/00_profile_report.md`의 "frontend-optimizer 전달 사항"
+- **출력**: `_workspace/perf/02_frontend_done.md` (수정 파일 목록 + 변경 요약)
 
 ## 에러 핸들링
 - TypeScript 타입 오류: 수정 후 `npx tsc --noEmit` 확인
@@ -46,4 +46,4 @@ FamilySync 앱의 프론트엔드 레이어 성능을 최적화한다. TanStack 
 ## 협업
 - perf-profiler의 `00_profile_report.md` 읽고 시작
 - db-optimizer와 병렬 작업 (공유 파일 없음)
-- 완료 후 `_workspace/02_frontend_done.md` 작성
+- 완료 후 `_workspace/perf/02_frontend_done.md` 작성

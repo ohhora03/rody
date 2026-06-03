@@ -88,6 +88,8 @@ model Sprint {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([projectId])
 }
 
 model Issue {
@@ -125,6 +127,7 @@ model Issue {
   @@index([assigneeId])
   @@index([projectId, sprintId])
   @@index([sprintId, status])
+  @@index([projectId, sprintId, order])
 }
 
 model Comment {
@@ -141,6 +144,9 @@ model Comment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([issueId])
+  @@index([authorId])
 }
 
 enum FamilyRole {

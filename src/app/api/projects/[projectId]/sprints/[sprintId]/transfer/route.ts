@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/get-session";
+import { getProjectMembership } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -11,12 +12,8 @@ export async function POST(
 
   const { projectId, sprintId } = await ctx.params;
 
-  // 프로젝트 멤버십 체크
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return Response.json({ error: "프로젝트를 찾을 수 없습니다" }, { status: 404 });
-  const member = await prisma.familyMember.findUnique({
-    where: { userId_familyId: { userId: user.id, familyId: project.familyId } },
-  });
+  // 프로젝트 멤버십 체크 (project + familyMember 직렬 2 RTT를 단일 쿼리로 통합)
+  const member = await getProjectMembership(user.id, projectId);
   if (!member) return Response.json({ error: "접근 권한이 없습니다" }, { status: 403 });
 
   let body: { issueId?: string; mode?: "transfer" | "copy"; targetSprintId?: string };

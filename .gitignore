@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# harness scratch (perf/sprint/my-task orchestrators)
+_workspace/
+_workspace_prev/

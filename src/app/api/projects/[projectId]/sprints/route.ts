@@ -1,15 +1,13 @@
 import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/get-session";
+import { getProjectMembership } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
+// 권한 검증: project + familyMember 직렬 2 RTT를 단일 쿼리로 통합
 async function getMemberAndProject(userId: string, projectId: string) {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return { error: "프로젝트를 찾을 수 없습니다", status: 404 };
-  const member = await prisma.familyMember.findUnique({
-    where: { userId_familyId: { userId, familyId: project.familyId } },
-  });
+  const member = await getProjectMembership(userId, projectId);
   if (!member) return { error: "접근 권한이 없습니다", status: 403 };
-  return { project, member };
+  return { member };
 }
 
 export async function GET(

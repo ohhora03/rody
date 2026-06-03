@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { Target, CheckCircle2, Clock, Award, Users, TrendingUp, AlertCircle, PauseCircle, Filter } from "lucide-react";
 import { BurndownChart } from "@/components/charts/burndown-chart";
 import { PRIORITY_CONFIG, STATUS_CONFIG } from "@/lib/utils";
@@ -9,31 +10,46 @@ import type { IssueWithRelations, SprintWithIssues, Sprint } from "@/types";
 
 export default function DashboardPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [allIssues, setAllIssues] = useState<IssueWithRelations[]>([]);
-  const [sprints, setSprints] = useState<Sprint[]>([]);
-  const [activeSprint, setActiveSprint] = useState<SprintWithIssues | null>(null);
   // 필터: "active" | "all" | sprintId
   const [scope, setScope] = useState<string>("active");
 
-  useEffect(() => {
-    async function load() {
-      const [issRes, spRes] = await Promise.all([
-        fetch(`/api/issues?projectId=${projectId}`),
-        fetch(`/api/projects/${projectId}/sprints`),
-      ]);
-      const [issJson, spJson] = await Promise.all([issRes.json(), spRes.json()]);
-      setAllIssues(issJson.data ?? []);
-      const sprintList: Sprint[] = spJson.data ?? [];
-      setSprints(sprintList);
-      const active = sprintList.find((s) => s.status === "ACTIVE");
-      if (active) {
-        const r = await fetch(`/api/projects/${projectId}/sprints/${active.id}`);
-        const j = await r.json();
-        setActiveSprint(j.data ?? null);
-      }
-    }
-    load();
-  }, [projectId]);
+  // 이슈 — backlog 페이지와 동일 키 공유, 60초 캐시
+  const { data: allIssues = [] } = useQuery<IssueWithRelations[]>({
+    queryKey: ["issues", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/issues?projectId=${projectId}`);
+      const j = await res.json();
+      return j.data ?? [];
+    },
+    staleTime: 60_000,
+    enabled: !!projectId,
+  });
+
+  // 스프린트 목록 — sprint kanban / backlog 페이지와 동일 키 공유
+  const { data: sprints = [] } = useQuery<Sprint[]>({
+    queryKey: ["sprints", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/sprints`);
+      const j = await res.json();
+      return j.data ?? [];
+    },
+    staleTime: 60_000,
+    enabled: !!projectId,
+  });
+
+  const activeSprintId = sprints.find((s) => s.status === "ACTIVE")?.id;
+
+  // 활성 스프린트 상세(번다운용) — sprint 키 공유, 활성 스프린트가 있을 때만
+  const { data: activeSprint = null } = useQuery<SprintWithIssues | null>({
+    queryKey: ["sprint", activeSprintId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/sprints/${activeSprintId}`);
+      const j = await res.json();
+      return j.data ?? null;
+    },
+    staleTime: 30_000,
+    enabled: !!projectId && !!activeSprintId,
+  });
 
   // scope에 따라 이슈 필터링
   const issues = (() => {
