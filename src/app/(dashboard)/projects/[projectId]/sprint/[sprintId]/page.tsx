@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
-import { BarChart2, Filter, Layers, Plus } from "lucide-react";
+import { BarChart2, Filter, Layers, Plus, FileDown } from "lucide-react";
 import { PRIORITY_CONFIG, STATUS_CONFIG, KANBAN_COLUMNS, getDDayLabel, cn } from "@/lib/utils";
 import type { IssueWithRelations, SprintWithIssues, IssueStatus, Member, Sprint } from "@/types";
 import { BurndownChart } from "@/components/charts/burndown-chart";
@@ -206,6 +206,13 @@ export default function SprintPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-medium hover:bg-indigo-700 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />과제 추가
+            </button>
+            <button
+              onClick={() => window.open(`/projects/${projectId}/sprint/${sprintId}/print`, "_blank")}
+              className="p-2 text-gray-400 hover:bg-gray-100 rounded-xl transition-colors"
+              title="PDF 내보내기"
+            >
+              <FileDown className="w-4 h-4" />
             </button>
             <button
               onClick={() => setShowChart(!showChart)}
