@@ -129,6 +129,7 @@ export default function Sidebar({ projectId, familyId, familyName, isMaster, act
       {/* 모바일 앱으로 이동 배너 */}
       <Link
         href="/m/dashboard"
+        prefetch={false}
         className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-600 text-xs font-semibold hover:bg-indigo-100 transition-colors"
         onClick={() => setOpen(false)}
       >
@@ -144,6 +145,7 @@ export default function Sidebar({ projectId, familyId, familyName, isMaster, act
             <Link
               key={href}
               href={href}
+              prefetch={false}
               onClick={() => setOpen(false)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",

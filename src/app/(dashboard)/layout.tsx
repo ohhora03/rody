@@ -1,16 +1,23 @@
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
+import { headers } from "next/headers";
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/layout/sidebar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/login");
+  const headersList = await headers();
+  // getToken을 서버 컴포넌트에서 사용하려면 request 객체가 필요 — headers로 모의 생성
+  const req = new NextRequest("http://localhost", { headers: headersList });
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET! });
+
+  if (!token?.id) redirect("/login");
+
+  const userId = token.id as string;
 
   const [member, dbUser] = await Promise.all([
     prisma.familyMember.findFirst({
-      where: { userId: session.user.id },
+      where: { userId },
       include: {
         family: {
           include: {
@@ -22,7 +29,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         },
       },
     }),
-    prisma.user.findUnique({ where: { id: session.user.id }, select: { color: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { color: true } }),
   ]);
 
   if (!member) redirect("/onboarding");
@@ -38,7 +45,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         familyName={member.family.name}
         isMaster={member.role === "MASTER"}
         activeSprint={activeSprint ? { id: activeSprint.id, name: activeSprint.name } : null}
-        user={{ name: session.user.name, email: session.user.email, color: dbUser?.color }}
+        user={{ name: token.name as string, email: token.email as string, color: dbUser?.color }}
       />
       <div className="flex-1 min-w-0 overflow-hidden md:pt-0 pt-16">{children}</div>
     </div>

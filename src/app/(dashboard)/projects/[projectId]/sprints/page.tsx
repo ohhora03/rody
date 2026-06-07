@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Play, CheckSquare, Zap, ChevronDown, ChevronUp, ExternalLink, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { getDDayLabel, cn, STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
@@ -33,8 +34,7 @@ type FailedAction = "next-sprint" | "backlog" | null;
 
 export default function SprintsPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const [sprints, setSprints] = useState<SprintWithIssues[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", goal: "", startDate: "", endDate: "" });
   const [saving, setSaving] = useState(false);
@@ -50,14 +50,18 @@ export default function SprintsPage() {
   const [deleteModalSprintId, setDeleteModalSprintId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/projects/${projectId}/sprints`);
-    const json = await res.json();
-    setSprints(json.data ?? []);
-    setLoading(false);
-  }, [projectId]);
+  const { data: sprints = [], isLoading: loading } = useQuery<SprintWithIssues[]>({
+    queryKey: ["sprints-list", projectId],
+    queryFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/sprints`);
+      const json = await res.json();
+      return json.data ?? [];
+    },
+    staleTime: 30_000,
+    enabled: !!projectId,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const load = () => queryClient.invalidateQueries({ queryKey: ["sprints-list", projectId] });
 
   async function toggleExpand(sprint: SprintWithIssues) {
     if (expandedId === sprint.id) {
@@ -71,8 +75,8 @@ export default function SprintsPage() {
       try {
         const res = await fetch(`/api/projects/${projectId}/sprints/${sprint.id}`);
         const json = await res.json();
-        setSprints((prev) =>
-          prev.map((s) => s.id === sprint.id ? { ...s, issues: json.data?.issues ?? [] } : s)
+        queryClient.setQueryData<SprintWithIssues[]>(["sprints-list", projectId], (prev) =>
+          (prev ?? []).map((s: SprintWithIssues) => s.id === sprint.id ? { ...s, issues: json.data?.issues ?? [] } : s)
         );
       } finally {
         setLoadingDetail(false);
